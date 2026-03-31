@@ -1,0 +1,5 @@
+Candidate 1
+Experience: 2 years in software engineering.
+Skills: Python, FastAPI, SQL, Docker, Git, Communication, React.
+Education: Bachelor in Computer Science.
+Worked with REST APIs and PostgreSQL in production.

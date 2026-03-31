@@ -1,0 +1,15 @@
+# Workspace-level ignores only.
+# Backend/frontend-specific rules are defined in:
+# - ai_cv_service_backend/.gitignore
+# - ai_cv_service_frontend/.gitignore
+
+# Root env files
+.env
+.env.*
+!.env.example
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

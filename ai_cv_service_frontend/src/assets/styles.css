@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #0f172a;
+  background: #f4f5f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f4f5f8;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  background: #dbe2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 520px;
+  background: #f8f8fa;
+  border-radius: 20px;
+  padding: 36px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.smart-layout .ant-layout-sider {
+  background: #fff;
+  border-right: 1px solid #e4e4e7;
+}
+
+.smart-menu .ant-menu-item {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  margin-inline: 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.smart-menu .ant-menu-item-selected {
+  background: #00011f !important;
+  color: #fff !important;
+}
+
+.panel-card {
+  background: #fff;
+  border: 1px solid #dcdce3;
+  border-radius: 16px;
+}
+
+.search-input .ant-input,
+.search-input .ant-input-affix-wrapper {
+  border-radius: 12px;
+  min-height: 48px;
+}
+
+@media (max-width: 1024px) {
+  .auth-card {
+    padding: 28px;
+  }
+}

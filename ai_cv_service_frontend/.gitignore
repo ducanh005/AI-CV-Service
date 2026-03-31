@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Local build/cache
+.vite/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.idea/

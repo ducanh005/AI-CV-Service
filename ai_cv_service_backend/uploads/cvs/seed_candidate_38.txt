@@ -1,0 +1,4 @@
+Candidate 38
+Experience: 7 years in backend development.
+Skills: Python, FastAPI, PostgreSQL, Docker, Git, Communication.
+Education: Bachelor in Software Engineering.

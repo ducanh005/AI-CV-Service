@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: ai_cv_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    container_name: ai_cv_worker
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=info
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - redis
+
+  db:
+    image: postgres:16
+    container_name: ai_cv_db
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      PGTZ: Asia/Ho_Chi_Minh
+      POSTGRES_DB: ai_cv_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: ai_cv_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:

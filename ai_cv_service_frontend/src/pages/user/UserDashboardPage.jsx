@@ -183,7 +183,7 @@ function UserDashboardPage() {
               return false;
             }}
             maxCount={1}
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.txt"
           >
             <button type="button" className="h-12 rounded-xl border border-dashed border-gray-300 px-4 text-[16px]">
               Tải lên CV (PDF/DOCX)

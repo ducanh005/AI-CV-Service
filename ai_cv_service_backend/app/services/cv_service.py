@@ -27,3 +27,7 @@ class CVService:
 
     async def get_cv(self, cv_id: int) -> CV | None:
         return await self.db.scalar(select(CV).where(CV.id == cv_id))
+
+    async def get_latest_cv_by_user(self, user_id: int) -> CV | None:
+        stmt = select(CV).where(CV.user_id == user_id).order_by(CV.created_at.desc()).limit(1)
+        return await self.db.scalar(stmt)

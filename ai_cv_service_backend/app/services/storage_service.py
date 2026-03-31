@@ -14,12 +14,14 @@ class StorageService:
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
+        "text/plain",
     }
 
     extension_by_mime = {
         "application/pdf": {".pdf"},
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {".docx"},
         "application/msword": {".doc"},
+        "text/plain": {".txt"},
         "image/png": {".png"},
         "image/jpeg": {".jpg", ".jpeg"},
         "image/webp": {".webp"},

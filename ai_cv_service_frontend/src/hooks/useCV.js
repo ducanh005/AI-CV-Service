@@ -1,9 +1,16 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { cvService } from "../services/cvService";
 
 export function useUploadCV() {
     return useMutation({ mutationFn: cvService.upload });
+}
+
+export function useLatestMyCV() {
+    return useQuery({
+        queryKey: ["my-latest-cv"],
+        queryFn: cvService.getLatestMine,
+    });
 }
 
 export function useScoreCV() {

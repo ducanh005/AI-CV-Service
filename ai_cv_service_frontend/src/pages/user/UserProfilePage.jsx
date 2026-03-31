@@ -1,11 +1,12 @@
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons';
 import { UploadOutlined } from '@ant-design/icons';
 import { Button, Card, Space, Typography, Upload, message } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useUploadCV } from '../../hooks/useCV';
+import { useLatestMyCV, useUploadCV } from '../../hooks/useCV';
 import ProfileForm from '../../components/profile/ProfileForm';
+import { resolveUploadUrl } from '../../utils/media';
 
 const { Text } = Typography;
 
@@ -14,6 +15,7 @@ function UserProfilePage() {
   const [cvFile, setCvFile] = useState(null);
   const [lastUploadedName, setLastUploadedName] = useState('');
   const uploadCvMutation = useUploadCV();
+  const { data: latestCv, refetch: refetchLatestCv } = useLatestMyCV();
 
   const handleUploadCv = async () => {
     if (!cvFile) {
@@ -25,6 +27,7 @@ function UserProfilePage() {
       const uploaded = await uploadCvMutation.mutateAsync(cvFile);
       setLastUploadedName(uploaded?.file_name || cvFile.name);
       setCvFile(null);
+      await refetchLatestCv();
       message.success('Tải CV thành công');
     } catch (error) {
       message.error(error?.response?.data?.detail || 'Không thể tải CV');
@@ -41,7 +44,7 @@ function UserProfilePage() {
         <Space direction="vertical" size={12} className="w-full">
           <Upload
             maxCount={1}
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.txt"
             beforeUpload={(file) => {
               setCvFile(file);
               return false;
@@ -55,7 +58,16 @@ function UserProfilePage() {
             Tải CV lên
           </Button>
 
-          {lastUploadedName && <Text className="!text-[#6b7289]">CV gần nhất: {lastUploadedName}</Text>}
+          {!!latestCv?.file_name && <Text className="!text-[#6b7289]">CV hiện tại: {latestCv.file_name}</Text>}
+          {!latestCv?.file_name && !!lastUploadedName && <Text className="!text-[#6b7289]">CV gần nhất: {lastUploadedName}</Text>}
+
+          <Button
+            icon={<EyeOutlined />}
+            disabled={!latestCv?.file_path}
+            onClick={() => window.open(resolveUploadUrl(latestCv.file_path), '_blank', 'noopener,noreferrer')}
+          >
+            Xem CV hiện tại
+          </Button>
         </Space>
       </Card>
 

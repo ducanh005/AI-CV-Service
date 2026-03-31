@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +13,7 @@ from app.services.storage_service import StorageService
 from app.workers.tasks import parse_cv_background
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/upload", response_model=CVResponse)
@@ -26,5 +29,19 @@ async def upload_cv(
         file_path=path,
         mime_type=file.content_type or "application/octet-stream",
     )
-    parse_cv_background.delay(cv.id)
+    try:
+        parse_cv_background.delay(cv.id)
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Failed to enqueue parse_cv_background for cv_id=%s: %s", cv.id, exc)
+    return CVResponse.model_validate(cv)
+
+
+@router.get("/me/latest", response_model=CVResponse | None)
+async def get_my_latest_cv(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> CVResponse | None:
+    cv = await CVService(db).get_latest_cv_by_user(current_user.id)
+    if not cv:
+        return None
     return CVResponse.model_validate(cv)

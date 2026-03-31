@@ -1,6 +1,10 @@
 import api from "./api";
 
 export const cvService = {
+    getLatestMine: async () => {
+        const { data } = await api.get("/cvs/me/latest");
+        return data;
+    },
     upload: async (file) => {
         const formData = new FormData();
         formData.append("file", file);

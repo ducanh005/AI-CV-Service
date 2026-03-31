@@ -6,7 +6,7 @@ import {
   PlusOutlined,
   UsergroupAddOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Col, Form, Input, Modal, Row, Select, Tag, Typography, message } from 'antd';
+import { Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Select, Tag, Typography, message } from 'antd';
 import { useState } from 'react';
 
 import { useCreateJob, useDeleteJob, useJobs, useUpdateJob } from '../../hooks/useJobs';
@@ -53,6 +53,15 @@ function HRJobsPage() {
     }
   };
 
+  const onDeleteJob = async (jobId) => {
+    try {
+      await deleteMutation.mutateAsync(jobId);
+      message.success('Đã xóa tin tuyển dụng');
+    } catch {
+      message.error('Xóa tin tuyển dụng thất bại');
+    }
+  };
+
   return (
     <div>
       <div className="mb-5 flex items-center justify-between">
@@ -89,7 +98,15 @@ function HRJobsPage() {
 
               <div className="mt-4 flex items-center justify-end gap-2 border-t border-gray-200 pt-3">
                 <Button icon={<EditOutlined />} onClick={() => openEdit(job)} />
-                <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate(job.id)} />
+                <Popconfirm
+                  title="Xóa tin tuyển dụng"
+                  description="Bạn chắc chắn muốn xóa tin này?"
+                  okText="Xóa"
+                  cancelText="Hủy"
+                  onConfirm={() => onDeleteJob(job.id)}
+                >
+                  <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending} />
+                </Popconfirm>
               </div>
             </Card>
           </Col>

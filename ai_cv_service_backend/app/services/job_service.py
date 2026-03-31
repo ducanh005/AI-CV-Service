@@ -1,8 +1,8 @@
-from sqlalchemy import and_, func, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException
-from app.models import Job
+from app.models import Company, Job
 from app.models.enums import JobStatus
 
 
@@ -32,7 +32,7 @@ class JobService:
         return job
 
     async def delete_job(self, job: Job) -> None:
-        job.deleted_at = func.now()
+        await self.db.delete(job)
         await self.db.commit()
 
     async def list_jobs(
@@ -41,6 +41,7 @@ class JobService:
         page_size: int,
         status: JobStatus | None,
         location: str | None,
+        q: str | None,
         skill: str | None,
     ) -> tuple[list[Job], int]:
         filters = [Job.deleted_at.is_(None)]
@@ -49,12 +50,26 @@ class JobService:
         if location:
             filters.append(Job.location.ilike(f"%{location}%"))
         if skill:
-            filters.append(Job.required_skills.contains([skill]))
+            # Cast JSON skills to text for compatibility across different DB column types.
+            filters.append(cast(Job.required_skills, String).ilike(f"%{skill}%"))
+
+        if q:
+            keyword = f"%{q}%"
+            filters.append(
+                or_(
+                    Job.title.ilike(keyword),
+                    Job.description.ilike(keyword),
+                    Job.location.ilike(keyword),
+                    Company.name.ilike(keyword),
+                )
+            )
 
         where_clause = and_(*filters)
-        total = await self.db.scalar(select(func.count(Job.id)).where(where_clause))
+        total_stmt = select(func.count(Job.id)).select_from(Job).join(Company, Company.id == Job.company_id).where(where_clause)
+        total = await self.db.scalar(total_stmt)
         stmt = (
             select(Job)
+            .join(Company, Company.id == Job.company_id)
             .where(where_clause)
             .order_by(Job.created_at.desc())
             .offset((page - 1) * page_size)

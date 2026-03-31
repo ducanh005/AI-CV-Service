@@ -7,6 +7,12 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 
+class UserGender(str, Enum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+
+
 class JobStatus(str, Enum):
     OPEN = "open"
     CLOSED = "closed"

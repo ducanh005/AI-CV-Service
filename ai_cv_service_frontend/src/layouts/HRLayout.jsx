@@ -10,6 +10,7 @@ import { Avatar, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '../store/authStore';
+import { resolveAvatarUrl } from '../utils/media';
 
 const { Sider, Content } = Layout;
 const { Text } = Typography;
@@ -20,12 +21,14 @@ const menuItems = [
   { key: '/hr/jobs', icon: <TeamOutlined />, label: 'Tin tuyển dụng' },
   { key: '/hr/staff', icon: <UserOutlined />, label: 'Nhân viên' },
   { key: '/hr/integrations', icon: <ApiOutlined />, label: 'Tích hợp' },
+  { key: '/hr/profile', icon: <UserOutlined />, label: 'Hồ sơ' },
 ];
 
 function HRLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, clearSession } = useAuthStore();
+  const avatarUrl = resolveAvatarUrl(user?.avatar_url);
 
   return (
     <Layout className="smart-layout min-h-screen bg-[#f6f6f8]">
@@ -41,18 +44,18 @@ function HRLayout() {
 
         <div className="mt-auto border-t border-gray-200 p-7">
           <div className="mb-4 flex items-center gap-3">
-            <Avatar className="bg-[#00011f]" size={44}>
+            <Avatar className="bg-[#00011f]" size={46} src={avatarUrl || undefined}>
               {(user?.full_name || 'H').charAt(0)}
             </Avatar>
-            <div>
-              <div className="text-[36px] font-semibold text-[#111827]">HR Manager</div>
-              <Text className="!text-[30px] !text-[#6b7289]">{user?.email || 'hr@company.com'}</Text>
+            <div className="min-w-0">
+              <div className="truncate text-[17px] font-semibold text-[#111827]">{user?.full_name || 'HR Manager'}</div>
+              <Text className="!block !truncate !text-[13px] !text-[#6b7289]">{user?.email || 'hr@company.com'}</Text>
             </div>
           </div>
 
           <button
             type="button"
-            className="flex items-center gap-2 bg-transparent text-[36px] font-semibold text-[#111827]"
+            className="flex items-center gap-2 rounded-lg bg-transparent px-1 py-1 text-[15px] font-semibold text-[#111827] transition-colors hover:text-[#2563eb]"
             onClick={() => {
               clearSession();
               navigate('/login');

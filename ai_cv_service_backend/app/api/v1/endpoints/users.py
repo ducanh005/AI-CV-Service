@@ -14,16 +14,25 @@ from app.services.user_service import UserService
 router = APIRouter()
 
 
+def _to_profile_response(user: User) -> UserProfileResponse:
+    return UserProfileResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        avatar_url=user.avatar_url,
+        date_of_birth=user.date_of_birth,
+        phone=user.phone,
+        address=user.address,
+        gender=user.gender,
+        education=user.education,
+        role=UserRole(user.role.name),
+        company_id=user.company_id,
+    )
+
+
 @router.get("/me", response_model=UserProfileResponse)
 async def get_me(current_user: User = Depends(get_current_user)) -> UserProfileResponse:
-    return UserProfileResponse(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        avatar_url=current_user.avatar_url,
-        role=UserRole(current_user.role.name),
-        company_id=current_user.company_id,
-    )
+    return _to_profile_response(current_user)
 
 
 @router.patch("/me", response_model=UserProfileResponse)
@@ -32,15 +41,8 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserProfileResponse:
-    user = await UserService(db).update_profile(current_user, payload.full_name)
-    return UserProfileResponse(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        avatar_url=user.avatar_url,
-        role=UserRole(user.role.name),
-        company_id=user.company_id,
-    )
+    user = await UserService(db).update_profile(current_user, payload)
+    return _to_profile_response(user)
 
 
 @router.post("/me/avatar", response_model=UserProfileResponse)
@@ -51,14 +53,7 @@ async def upload_avatar(
 ) -> UserProfileResponse:
     path = await StorageService.save_upload(file, settings.AVATAR_DIR, StorageService.allowed_avatar_types)
     user = await UserService(db).update_avatar(current_user, path)
-    return UserProfileResponse(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        avatar_url=user.avatar_url,
-        role=UserRole(user.role.name),
-        company_id=user.company_id,
-    )
+    return _to_profile_response(user)
 
 
 @router.post("/me/change-password")

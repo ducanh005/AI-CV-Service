@@ -51,10 +51,18 @@ async def list_jobs(
     page_size: int = Query(default=10, ge=1, le=100),
     status: JobStatus | None = Query(default=None),
     location: str | None = Query(default=None),
+    q: str | None = Query(default=None),
     skill: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
-    jobs, total = await JobService(db).list_jobs(page=page, page_size=page_size, status=status, location=location, skill=skill)
+    jobs, total = await JobService(db).list_jobs(
+        page=page,
+        page_size=page_size,
+        status=status,
+        location=location,
+        q=q,
+        skill=skill,
+    )
     return {
         "items": [JobResponse.model_validate(job).model_dump() for job in jobs],
         "total": total,

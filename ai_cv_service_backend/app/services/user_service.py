@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import AppException
 from app.core.security import hash_password, verify_password
 from app.models import Role, User
+from app.schemas.user import UpdateProfileRequest
 
 
 class UserService:
@@ -19,9 +20,10 @@ class UserService:
             raise AppException("User not found", status_code=404)
         return user
 
-    async def update_profile(self, user: User, full_name: str | None) -> User:
-        if full_name:
-            user.full_name = full_name
+    async def update_profile(self, user: User, payload: UpdateProfileRequest) -> User:
+        updates = payload.model_dump(exclude_unset=True)
+        for key, value in updates.items():
+            setattr(user, key, value)
         await self.db.commit()
         await self.db.refresh(user)
         return user

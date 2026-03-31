@@ -42,7 +42,7 @@ function UserDashboardPage() {
   const scoreMutation = useScoreCV();
   const { data: myAppsData } = useMyApplications({ page: 1, pageSize: 50 }, true);
 
-  const { data, isLoading, error } = useJobs({ page: 1, page_size: 20, skill: debouncedSearch || undefined });
+  const { data, isLoading, error } = useJobs({ page: 1, page_size: 20, q: debouncedSearch || undefined });
   const jobs = data?.items || [];
 
   const myApplications = myAppsData?.items || [];

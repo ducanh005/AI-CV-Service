@@ -57,9 +57,6 @@ class AICVScoringService:
         job_description: str,
         criteria: HRScoreCriteria | None = None,
     ) -> tuple[float, str]:
-        if not settings.AISTUDIO_API_KEY:
-            return self.heuristic_score(cv_text, job_description, criteria)
-
         criteria_text = "No explicit HR criteria provided."
         if criteria:
             criteria_text = (
@@ -78,6 +75,50 @@ class AICVScoringService:
             f"CV:\n{cv_text}\n\n"
             f"JOB_DESCRIPTION:\n{job_description}"
         )
+
+        if settings.OPENAI_API_KEY:
+            try:
+                async with httpx.AsyncClient(timeout=settings.OPENAI_TIMEOUT_SECONDS) as client:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": settings.OPENAI_MODEL,
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "You are a strict JSON API that returns only valid JSON.",
+                                },
+                                {
+                                    "role": "user",
+                                    "content": prompt,
+                                },
+                            ],
+                            "temperature": 0.2,
+                            "response_format": {"type": "json_object"},
+                        },
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+                model_text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
+                if not model_text:
+                    raise ValueError("Empty OpenAI response")
+
+                parsed = self._extract_json_object(model_text)
+                raw_score = float(parsed.get("score", 0))
+                score = max(0.0, min(100.0, round(raw_score, 2)))
+                reasoning = str(parsed.get("reasoning", "AI score generated")).strip() or "AI score generated"
+                return score, reasoning[:280]
+            except Exception:
+                # Fall back to AI Studio / heuristic if OpenAI call fails.
+                pass
+
+        if not settings.AISTUDIO_API_KEY:
+            return self.heuristic_score(cv_text, job_description, criteria)
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/{settings.AISTUDIO_MODEL}:generateContent"

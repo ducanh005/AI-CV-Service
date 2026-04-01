@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     JWT_ALGORITHM: str = "HS256"
 
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4.1-mini"
+    OPENAI_TIMEOUT_SECONDS: int = 25
+
     AISTUDIO_API_KEY: str = ""
     AISTUDIO_MODEL: str = "gemini-1.5-flash"
     AISTUDIO_TIMEOUT_SECONDS: int = 25

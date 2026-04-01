@@ -196,6 +196,30 @@ async def list_job_applications(
     }
 
 
+@router.get("/company", response_model=dict)
+async def list_company_applications(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    service = ApplicationService(db)
+
+    if current_user.role.name == UserRole.HR.value:
+        if not current_user.company_id:
+            raise AppException("HR user must belong to a company", status_code=400)
+        applications, total = await service.list_for_company(current_user.company_id, page, page_size)
+    else:
+        applications, total = await service.list_all(page, page_size)
+
+    return {
+        "items": [ApplicationResponse.model_validate(_serialize_application(a)).model_dump() for a in applications],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 @router.patch("/{application_id}/review", response_model=ApplicationResponse)
 async def review_application(
     application_id: int,

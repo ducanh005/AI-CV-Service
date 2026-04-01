@@ -4,7 +4,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import AppException
 from app.core.security import hash_password, verify_password
-from app.models import Role, User
+from app.models import Application, CV, Job, Role, User
+from app.models.enums import UserRole
 from app.schemas.user import UpdateProfileRequest
 
 
@@ -60,3 +61,42 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def find_candidate_by_email_for_hr(
+        self,
+        *,
+        email: str,
+        requester: User,
+    ) -> tuple[User, CV | None]:
+        candidate = await self.db.scalar(
+            select(User)
+            .options(selectinload(User.role))
+            .where(User.email == email, User.deleted_at.is_(None), User.is_active.is_(True))
+        )
+        if not candidate:
+            raise AppException("Candidate not found", status_code=404)
+
+        if not candidate.role or candidate.role.name != UserRole.USER.value:
+            raise AppException("User is not a candidate", status_code=400)
+
+        if requester.role.name == UserRole.HR.value:
+            has_application_in_company = await self.db.scalar(
+                select(Application.id)
+                .join(Job, Job.id == Application.job_id)
+                .where(
+                    Application.candidate_id == candidate.id,
+                    Job.company_id == requester.company_id,
+                    Job.deleted_at.is_(None),
+                )
+                .limit(1)
+            )
+            if not has_application_in_company:
+                raise AppException("Candidate not found", status_code=404)
+
+        latest_cv = await self.db.scalar(
+            select(CV)
+            .where(CV.user_id == candidate.id)
+            .order_by(CV.created_at.desc())
+            .limit(1)
+        )
+        return candidate, latest_cv

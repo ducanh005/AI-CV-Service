@@ -42,3 +42,16 @@ class CandidateCreateResponse(BaseModel):
     id: int
     email: EmailStr
     full_name: str
+
+
+class CandidateSearchResult(BaseModel):
+    id: int
+    email: EmailStr
+    full_name: str
+    phone: str | None
+    address: str | None
+    education: str | None
+    latest_cv_id: int | None
+    latest_cv_file_name: str | None
+    latest_cv_file_path: str | None
+    latest_cv_mime_type: str | None

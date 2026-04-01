@@ -50,3 +50,9 @@ export function useUploadAvatar() {
         onSuccess: syncProfile,
     });
 }
+
+export function useSearchCandidateByEmail() {
+    return useMutation({
+        mutationFn: userService.searchCandidateByEmail,
+    });
+}

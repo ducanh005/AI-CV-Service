@@ -21,6 +21,10 @@ export function useRankCandidates() {
     return useMutation({ mutationFn: cvService.rankCandidates });
 }
 
+export function useNotifyScreeningResult() {
+    return useMutation({ mutationFn: cvService.notifyScreeningResult });
+}
+
 export function useScoreUploadedCV() {
     return useMutation({ mutationFn: cvService.scoreUploadedCV });
 }

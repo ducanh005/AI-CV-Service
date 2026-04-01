@@ -17,8 +17,20 @@ export const cvService = {
         const { data } = await api.post("/ai/score-cv", payload);
         return data;
     },
-    rankCandidates: async (payload) => {
-        const { data } = await api.post("/ai/rank-candidates", payload);
+    rankCandidates: async ({ jobId, minScore, notifyCandidates, criteria }) => {
+        const { data } = await api.post("/ai/rank-candidates", {
+            job_id: jobId,
+            min_score: minScore,
+            notify_candidates: Boolean(notifyCandidates),
+            criteria,
+        });
+        return data;
+    },
+    notifyScreeningResult: async ({ applicationId, minScore }) => {
+        const { data } = await api.post("/ai/notify-screening-result", {
+            application_id: applicationId,
+            min_score: minScore,
+        });
         return data;
     },
     scoreUploadedCV: async ({

@@ -100,3 +100,48 @@ class ApplicationService:
             )
         ).all()
         return list(applications), int(total or 0)
+
+    async def list_for_company(self, company_id: int, page: int, page_size: int) -> tuple[list[Application], int]:
+        where_clause = and_(
+            Application.job_id == Job.id,
+            Job.company_id == company_id,
+            Job.deleted_at.is_(None),
+        )
+        total = await self.db.scalar(
+            select(func.count(Application.id)).select_from(Application, Job).where(where_clause)
+        )
+        applications = (
+            await self.db.scalars(
+                select(Application)
+                .join(Job, Job.id == Application.job_id)
+                .options(
+                    selectinload(Application.candidate),
+                    selectinload(Application.job).selectinload(Job.company),
+                    selectinload(Application.cv),
+                    selectinload(Application.ai_score),
+                )
+                .where(Job.company_id == company_id, Job.deleted_at.is_(None))
+                .order_by(Application.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return list(applications), int(total or 0)
+
+    async def list_all(self, page: int, page_size: int) -> tuple[list[Application], int]:
+        total = await self.db.scalar(select(func.count(Application.id)))
+        applications = (
+            await self.db.scalars(
+                select(Application)
+                .options(
+                    selectinload(Application.candidate),
+                    selectinload(Application.job).selectinload(Job.company),
+                    selectinload(Application.cv),
+                    selectinload(Application.ai_score),
+                )
+                .order_by(Application.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return list(applications), int(total or 0)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
@@ -7,7 +7,7 @@ from app.core.exceptions import AppException
 from app.core.config import settings
 from app.models import User
 from app.models.enums import UserRole
-from app.schemas.user import CandidateCreateRequest, CandidateCreateResponse, ChangePasswordRequest, UpdateProfileRequest, UserProfileResponse
+from app.schemas.user import CandidateCreateRequest, CandidateCreateResponse, CandidateSearchResult, ChangePasswordRequest, UpdateProfileRequest, UserProfileResponse
 from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 
@@ -77,3 +77,25 @@ async def create_candidate(
 ) -> CandidateCreateResponse:
     user = await UserService(db).create_candidate(email=payload.email, full_name=payload.full_name)
     return CandidateCreateResponse(id=user.id, email=user.email, full_name=user.full_name)
+
+
+@router.get("/candidates/search", response_model=CandidateSearchResult)
+async def search_candidate_by_email(
+    email: str = Query(...),
+    current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db_session),
+) -> CandidateSearchResult:
+    service = UserService(db)
+    candidate, latest_cv = await service.find_candidate_by_email_for_hr(email=email, requester=current_user)
+    return CandidateSearchResult(
+        id=candidate.id,
+        email=candidate.email,
+        full_name=candidate.full_name,
+        phone=candidate.phone,
+        address=candidate.address,
+        education=candidate.education,
+        latest_cv_id=latest_cv.id if latest_cv else None,
+        latest_cv_file_name=latest_cv.file_name if latest_cv else None,
+        latest_cv_file_path=latest_cv.file_path if latest_cv else None,
+        latest_cv_mime_type=latest_cv.mime_type if latest_cv else None,
+    )

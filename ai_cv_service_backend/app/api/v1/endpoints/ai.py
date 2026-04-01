@@ -11,7 +11,17 @@ from app.integrations.mock_ai_parser import extract_text_from_cv
 from app.models import Application, CV, Job
 from app.models import User
 from app.models.enums import UserRole
-from app.schemas.ai import HRScoreCriteria, RankCandidatesRequest, RankCandidatesResult, RankedCandidateResponse, ScoreCVRequest, ScoreCVResponse, ScoreUploadedCVResponse
+from app.schemas.ai import (
+    HRScoreCriteria,
+    NotifyScreeningResultRequest,
+    NotifyScreeningResultResponse,
+    RankCandidatesRequest,
+    RankCandidatesResult,
+    RankedCandidateResponse,
+    ScoreCVRequest,
+    ScoreCVResponse,
+    ScoreUploadedCVResponse,
+)
 from app.services.ai_service import AICVScoringService
 from app.services.notification_service import NotificationService
 from app.services.storage_service import StorageService
@@ -169,7 +179,7 @@ async def rank_candidates(
                 threshold=payload.min_score,
             )
 
-        if passed and application.candidate:
+        if application.candidate:
             ranked_items.append(
                 RankedCandidateResponse(
                     application_id=application.id,
@@ -177,6 +187,7 @@ async def rank_candidates(
                     candidate_name=application.candidate.full_name,
                     candidate_email=application.candidate.email,
                     score=score,
+                    passed=passed,
                     reasoning=reasoning,
                 )
             )
@@ -184,7 +195,54 @@ async def rank_candidates(
     ranked_items.sort(key=lambda item: item.score, reverse=True)
     return RankCandidatesResult(
         total_scored=total_scored,
-        total_passed=len(ranked_items),
+        total_passed=sum(1 for item in ranked_items if item.passed),
         min_score=payload.min_score,
         items=ranked_items,
+    )
+
+
+@router.post("/notify-screening-result", response_model=NotifyScreeningResultResponse)
+async def notify_screening_result(
+    payload: NotifyScreeningResultRequest,
+    current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db_session),
+) -> NotifyScreeningResultResponse:
+    application = await db.scalar(
+        select(Application)
+        .options(selectinload(Application.job), selectinload(Application.candidate), selectinload(Application.ai_score))
+        .where(Application.id == payload.application_id)
+    )
+    if not application:
+        raise AppException("Application not found", status_code=404)
+
+    if not application.job:
+        raise AppException("Job not found", status_code=404)
+
+    if current_user.role.name == UserRole.HR.value and current_user.company_id != application.job.company_id:
+        raise AppException("Forbidden", status_code=403)
+
+    if not application.candidate or not application.candidate.email:
+        raise AppException("Candidate email not found", status_code=404)
+
+    if not application.ai_score:
+        raise AppException("AI score not found for this application", status_code=400)
+
+    score = application.ai_score.score
+    passed = score >= payload.min_score
+
+    NotificationService.send_screening_result(
+        email=application.candidate.email,
+        job_title=application.job.title,
+        passed=passed,
+        score=score,
+        threshold=payload.min_score,
+    )
+
+    return NotifyScreeningResultResponse(
+        application_id=application.id,
+        candidate_email=application.candidate.email,
+        job_title=application.job.title,
+        score=score,
+        min_score=payload.min_score,
+        passed=passed,
     )

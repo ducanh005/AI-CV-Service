@@ -46,6 +46,7 @@ class RankedCandidateResponse(BaseModel):
     candidate_name: str
     candidate_email: str
     score: float
+    passed: bool
     reasoning: str
 
 
@@ -54,3 +55,17 @@ class RankCandidatesResult(BaseModel):
     total_passed: int
     min_score: float
     items: list[RankedCandidateResponse]
+
+
+class NotifyScreeningResultRequest(BaseModel):
+    application_id: int
+    min_score: float = Field(default=60.0, ge=0.0, le=100.0)
+
+
+class NotifyScreeningResultResponse(BaseModel):
+    application_id: int
+    candidate_email: str
+    job_title: str
+    score: float
+    min_score: float
+    passed: bool

@@ -21,6 +21,14 @@ export function useApplicationsByJob(params, enabled = true) {
     });
 }
 
+export function useApplicationsByCompany(params, enabled = true) {
+    return useQuery({
+        queryKey: ["applications", "company", params],
+        queryFn: () => applicationService.listByCompany(params),
+        enabled,
+    });
+}
+
 export function useMyApplications(params, enabled = true) {
     return useQuery({
         queryKey: ["applications", "me", params],

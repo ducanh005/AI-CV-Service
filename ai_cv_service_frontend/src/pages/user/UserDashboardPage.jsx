@@ -4,12 +4,12 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { Alert, Col, Input, Modal, Row, Segmented, Space, Tag, Typography, Upload, message } from 'antd';
+import { Col, Input, Modal, Row, Segmented, Space, Tag, Typography, message } from 'antd';
 import { useMemo, useState } from 'react';
 
 import { useApplyJob, useMyApplications } from '../../hooks/useApplications';
 import { useJobs } from '../../hooks/useJobs';
-import { useScoreCV, useUploadCV } from '../../hooks/useCV';
+import { useLatestMyCV } from '../../hooks/useCV';
 import UserJobCard from '../../components/user/UserJobCard';
 import LoadingState from '../../components/common/LoadingState';
 import ErrorState from '../../components/common/ErrorState';
@@ -33,13 +33,10 @@ function UserDashboardPage() {
   const [tab, setTab] = useState('jobs');
   const [search, setSearch] = useState('');
   const [applyJob, setApplyJob] = useState(null);
-  const [cvFile, setCvFile] = useState(null);
-  const [aiScoreResult, setAiScoreResult] = useState(null);
 
   const debouncedSearch = useDebounce(search);
   const applyMutation = useApplyJob();
-  const uploadMutation = useUploadCV();
-  const scoreMutation = useScoreCV();
+  const { data: latestCV } = useLatestMyCV();
   const { data: myAppsData } = useMyApplications({ page: 1, pageSize: 50 }, true);
 
   const { data, isLoading, error } = useJobs({ page: 1, page_size: 20, q: debouncedSearch || undefined });
@@ -62,25 +59,15 @@ function UserDashboardPage() {
       return;
     }
 
-    if (!cvFile) {
-      message.error('Vui lòng tải lên CV trước khi ứng tuyển');
+    if (!latestCV?.id) {
+      message.error('Bạn chưa có CV trong hồ sơ. Vui lòng tải CV ở mục Hồ sơ trước khi ứng tuyển');
       return;
     }
 
     try {
-      let cvId;
-      const uploaded = await uploadMutation.mutateAsync(cvFile);
-      cvId = uploaded.id;
-      const score = await scoreMutation.mutateAsync({
-        cv_id: cvId,
-        job_description: applyJob.description,
-      });
-      setAiScoreResult(score);
-
-      await applyMutation.mutateAsync({ job_id: applyJob.id, cv_id: cvId });
+      await applyMutation.mutateAsync({ job_id: applyJob.id, cv_id: latestCV.id });
       message.success('Ứng tuyển thành công');
       setApplyJob(null);
-      setCvFile(null);
     } catch (err) {
       message.error('Không thể ứng tuyển, vui lòng thử lại');
     }
@@ -174,30 +161,12 @@ function UserDashboardPage() {
         onOk={handleApply}
         okText="Xác nhận ứng tuyển"
         cancelText="Hủy"
-        confirmLoading={applyMutation.isPending || uploadMutation.isPending || scoreMutation.isPending}
+        confirmLoading={applyMutation.isPending}
       >
         <Space direction="vertical" className="w-full" size={16}>
-          <Upload
-            beforeUpload={(file) => {
-              setCvFile(file);
-              return false;
-            }}
-            maxCount={1}
-            accept=".pdf,.doc,.docx,.txt"
-          >
-            <button type="button" className="h-12 rounded-xl border border-dashed border-gray-300 px-4 text-[16px]">
-              Tải lên CV (PDF/DOCX)
-            </button>
-          </Upload>
-
-          {aiScoreResult && (
-            <Alert
-              type="success"
-              showIcon
-              message={`Điểm AI: ${aiScoreResult.score}`}
-              description={aiScoreResult.reasoning}
-            />
-          )}
+          <p className="m-0 text-[16px] text-[#6b7289]">
+            CV dùng để ứng tuyển: {latestCV?.file_name || 'Chưa có CV trong hồ sơ'}
+          </p>
         </Space>
       </Modal>
     </div>

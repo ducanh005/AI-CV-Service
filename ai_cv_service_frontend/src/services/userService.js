@@ -17,4 +17,10 @@ export const userService = {
         });
         return data;
     },
+    searchCandidateByEmail: async (email) => {
+        const { data } = await api.get("/users/candidates/search", {
+            params: { email },
+        });
+        return data;
+    },
 };

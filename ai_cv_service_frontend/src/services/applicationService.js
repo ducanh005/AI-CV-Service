@@ -11,6 +11,12 @@ export const applicationService = {
         });
         return data;
     },
+    listByCompany: async ({ page, pageSize }) => {
+        const { data } = await api.get("/applications/company", {
+            params: { page, page_size: pageSize },
+        });
+        return data;
+    },
     listMine: async ({ page, pageSize }) => {
         const { data } = await api.get("/applications/me", {
             params: { page, page_size: pageSize },

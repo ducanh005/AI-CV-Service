@@ -41,12 +41,18 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_ID: str = ""
     LINKEDIN_CLIENT_SECRET: str = ""
     LINKEDIN_REDIRECT_URI: str = ""
+    LINKEDIN_FRONTEND_CALLBACK_URI: str = "http://localhost:5173/oauth/linkedin/callback"
+    LINKEDIN_OAUTH_SCOPE: str = "openid profile email"
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = ""
+    GOOGLE_FRONTEND_CALLBACK_URI: str = "http://localhost:5173/oauth/google/callback"
+    GOOGLE_OAUTH_SCOPE: str = "openid email profile"
     GMAIL_SENDER_EMAIL: str = ""
     GMAIL_APP_PASSWORD: str = ""
+
+    ENABLE_SOCIAL_AUTH: bool = True
 
     RATE_LIMIT_DEFAULT: str = "100/minute"
 

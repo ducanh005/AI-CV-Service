@@ -42,6 +42,7 @@ src/
 - Authentication
     - Login page
     - Register page
+    - Google/LinkedIn social login/register callback flow
     - Role selection and role-based redirect
 - Candidate (User)
     - Dashboard with stats + tabs (Jobs / My Applications)

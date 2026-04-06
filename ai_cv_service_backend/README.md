@@ -99,6 +99,11 @@ Seeded test accounts (password: `Password@123`):
 - POST `/api/v1/auth/login`
 - POST `/api/v1/auth/refresh`
 - POST `/api/v1/auth/logout`
+- GET `/api/v1/auth/oauth/{provider}/authorize`
+- GET `/api/v1/auth/oauth/{provider}/callback`
+- POST `/api/v1/auth/oauth/{provider}/token`
+- GET `/api/v1/auth/oauth/{provider}/profile`
+- POST `/api/v1/auth/oauth/{provider}/register`
 
 ### Users
 

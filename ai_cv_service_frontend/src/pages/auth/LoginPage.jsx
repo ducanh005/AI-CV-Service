@@ -1,10 +1,13 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { Alert, Button, Form, Input, Typography } from 'antd';
+import { Alert, Button, Divider, Form, Input, Typography, message } from 'antd';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AuthFooterHint from '../../components/auth/AuthFooterHint';
 import AuthLayout from '../../layouts/AuthLayout';
 import { useLogin } from '../../hooks/useAuth';
+import { authService } from '../../services/authService';
+import { buildSocialState, getSocialProviderLabel } from '../../utils/socialAuth';
 import { USER_ROLES } from '../../utils/constants';
 import { tokenStorage } from '../../utils/storage';
 
@@ -13,6 +16,9 @@ const { Text } = Typography;
 function LoginPage() {
   const navigate = useNavigate();
   const loginMutation = useLogin();
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState('');
+
+  const socialEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED !== 'false';
 
   const onFinish = async (values) => {
     try {
@@ -28,6 +34,23 @@ function LoginPage() {
       }
     } catch (error) {
       // handled in UI
+    }
+  };
+
+  const onSocialAuthStart = async (provider, mode) => {
+    setSocialLoadingProvider(provider);
+    try {
+      const result = await authService.oauthAuthorize(provider, mode, buildSocialState(mode));
+      if (!result?.auth_url) {
+        throw new Error('Không nhận được URL xác thực social');
+      }
+      window.location.href = result.auth_url;
+    } catch (error) {
+      message.error(
+        error?.response?.data?.detail ||
+          `Không thể bắt đầu đăng nhập bằng ${getSocialProviderLabel(provider)}`,
+      );
+      setSocialLoadingProvider('');
     }
   };
 
@@ -73,6 +96,30 @@ function LoginPage() {
             Đăng ký
           </button>
         </div>
+
+        {socialEnabled && (
+          <>
+            <Divider className="!my-6 !text-[16px] !text-[#6b7289]">Hoặc tiếp tục với</Divider>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Button
+                block
+                onClick={() => onSocialAuthStart('google', 'login')}
+                loading={socialLoadingProvider === 'google'}
+                className="!h-[48px] !rounded-[12px]"
+              >
+                Google (Gmail)
+              </Button>
+              <Button
+                block
+                onClick={() => onSocialAuthStart('linkedin', 'login')}
+                loading={socialLoadingProvider === 'linkedin'}
+                className="!h-[48px] !rounded-[12px]"
+              >
+                LinkedIn
+              </Button>
+            </div>
+          </>
+        )}
       </Form>
 
       <AuthFooterHint type="login" />

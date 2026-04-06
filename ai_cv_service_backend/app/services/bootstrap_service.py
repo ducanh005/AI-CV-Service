@@ -26,6 +26,12 @@ async def ensure_user_profile_columns(db: AsyncSession) -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS address VARCHAR(255)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS education VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_profile_json TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin_id VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin_profile_json TEXT",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id_nonnull ON users (google_id) WHERE google_id IS NOT NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_linkedin_id_nonnull ON users (linkedin_id) WHERE linkedin_id IS NOT NULL",
     ]
     for stmt in statements:
         await db.execute(text(stmt))

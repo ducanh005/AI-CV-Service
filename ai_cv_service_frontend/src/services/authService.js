@@ -23,4 +23,32 @@ export const authService = {
         const { data } = await api.get("/users/me");
         return data;
     },
+    oauthAuthorize: async (provider, mode = "login", state = "") => {
+        const params = {
+            mode,
+        };
+        if (state) {
+            params.state = state;
+        }
+
+        const { data } = await api.get(`/auth/oauth/${provider}/authorize`, { params });
+        return data;
+    },
+    oauthExchangeToken: async (provider, code) => {
+        const { data } = await api.post(`/auth/oauth/${provider}/token`, { code });
+        return data;
+    },
+    oauthFetchProfile: async (provider, accessToken, idToken) => {
+        const { data } = await api.get(`/auth/oauth/${provider}/profile`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            params: idToken ? { id_token: idToken } : undefined,
+        });
+        return data;
+    },
+    oauthRegister: async (provider, payload) => {
+        const { data } = await api.post(`/auth/oauth/${provider}/register`, payload);
+        return data;
+    },
 };

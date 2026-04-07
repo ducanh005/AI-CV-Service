@@ -1,4 +1,5 @@
 import {
+  BellFilled,
   CheckCircleOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
@@ -28,6 +29,14 @@ const statusLabelMap = {
   accepted: 'Được chấp nhận',
   rejected: 'Từ chối',
 };
+
+const statusColorMap = {
+  pending: '#f59e0b',
+  accepted: '#22c55e',
+  rejected: '#ef4444',
+};
+
+const isMailNotified = (notes = '') => (notes || '').includes('[MAIL_SENT]');
 
 function UserDashboardPage() {
   const [tab, setTab] = useState('jobs');
@@ -141,13 +150,39 @@ function UserDashboardPage() {
       {tab === 'applications' && (
         <div className="mt-5 space-y-4">
           {myApplications.map((application) => (
-            <div key={application.id} className="panel-card flex items-start justify-between p-6">
-              <div>
-                <h3 className="m-0 text-[16px]">{application.job_title || `Job #${application.job_id}`}</h3>
-                <p className="my-2 text-[20px] text-[#6b7289]">{application.company_name || 'Company'}</p>
-                <p className="m-0 text-[20px] text-[#6b7289]">Nộp đơn: {new Date(application.created_at).toLocaleDateString('vi-VN')}</p>
+            <div key={application.id} className="panel-card p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="m-0 text-[16px]">{application.job_title || `Job #${application.job_id}`}</h3>
+                  <p className="my-2 text-[18px] text-[#6b7289]">{application.company_name || 'Company'}</p>
+                  <p className="m-0 text-[16px] text-[#6b7289]">Nộp đơn: {new Date(application.created_at).toLocaleDateString('vi-VN')}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {isMailNotified(application.notes) && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#eff6ff] px-3 py-1 text-[12px] font-medium text-[#1d4ed8]">
+                      <BellFilled className="text-[12px]" />
+                      Có thông báo mới vui lòng kiểm tra email
+                    </span>
+                  )}
+                  <Tag
+                    color={application.status === 'accepted' ? 'green' : application.status === 'rejected' ? 'red' : 'gold'}
+                    className="!m-0 !rounded-full !px-3 !py-1 !text-[13px]"
+                  >
+                    {statusLabelMap[application.status] || application.status}
+                  </Tag>
+                </div>
               </div>
-              <Tag className="!rounded-full !px-4 !py-2 !text-[18px]">{statusLabelMap[application.status] || application.status}</Tag>
+
+              <div className="mt-4 h-[8px] w-full overflow-hidden rounded-full bg-[#e5e7eb]">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: application.status === 'accepted' ? '100%' : application.status === 'rejected' ? '100%' : '55%',
+                    backgroundColor: statusColorMap[application.status] || '#9ca3af',
+                  }}
+                />
+              </div>
             </div>
           ))}
           {!myApplications.length && <p className="text-[16px] text-[#6b7289]">Bạn chưa có đơn ứng tuyển nào.</p>}

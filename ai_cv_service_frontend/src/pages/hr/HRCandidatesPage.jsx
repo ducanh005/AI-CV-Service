@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons';
 import {
   Button,
+  Card,
   Form,
   Input,
   Modal,
@@ -19,11 +20,10 @@ import {
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 
-import { useApplicationsByCompany, useApplicationsByJob } from '../../hooks/useApplications';
+import { useApplicationsByCompany, useApplicationsByJob, useReviewApplication } from '../../hooks/useApplications';
 import { useJobs } from '../../hooks/useJobs';
 import { useNotifyScreeningResult, useRankCandidates } from '../../hooks/useCV';
-import { useCreateInterview } from '../../hooks/useIntegrations';
-import { useLinkedinOauthUrl } from '../../hooks/useIntegrations';
+import { useCreateInterview, useLinkedinOauthUrl, useSendGmailEmail } from '../../hooks/useIntegrations';
 
 const { Title, Text } = Typography;
 
@@ -42,6 +42,11 @@ function HRCandidatesPage() {
   const [isLinkedinOpen, setIsLinkedinOpen] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState(null);
+  const [emailResult, setEmailResult] = useState('accepted');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
   const [interviewTarget, setInterviewTarget] = useState(null);
   const [aiJobId, setAiJobId] = useState(undefined);
   const [aiThreshold, setAiThreshold] = useState('60');
@@ -53,6 +58,8 @@ function HRCandidatesPage() {
   const rankCandidatesMutation = useRankCandidates();
   const notifyScreeningResultMutation = useNotifyScreeningResult();
   const createInterviewMutation = useCreateInterview();
+  const reviewApplicationMutation = useReviewApplication();
+  const sendGmailEmailMutation = useSendGmailEmail();
   const { data: jobsData } = useJobs({ page: 1, page_size: 50 });
   const jobs = jobsData?.items || [];
   const isAllJobsMode = selectedJobId === 'all';
@@ -80,6 +87,50 @@ function HRCandidatesPage() {
     });
   }, [isAllJobsMode, companyApplicationsData?.items, applicationsData?.items, search, statusFilter]);
 
+  const normalizeStatusLabel = (status) => {
+    if (status === 'accepted') return 'Đạt yêu cầu';
+    if (status === 'rejected') return 'Chưa phù hợp';
+    return 'Đang chờ';
+  };
+
+  const buildEmailTemplate = (candidate, result) => {
+    const jobName = candidate?.job_title || 'vị trí ứng tuyển';
+    const candidateName = candidate?.candidate_name || 'Ứng viên';
+
+    if (result === 'accepted') {
+      return {
+        subject: `[AI CV Service] Kết quả ứng tuyển - ${jobName}`,
+        message: `Chào ${candidateName},\n\nChúc mừng bạn đã vượt qua vòng sàng lọc cho vị trí ${jobName}.\nHR sẽ liên hệ với bạn để trao đổi lịch phỏng vấn trong thời gian sớm nhất.\n\nTrân trọng,\nAI CV Service HR Team`,
+      };
+    }
+
+    return {
+      subject: `[AI CV Service] Kết quả ứng tuyển - ${jobName}`,
+      message: `Chào ${candidateName},\n\nCảm ơn bạn đã ứng tuyển vị trí ${jobName}.\nSau khi xem xét, chúng tôi rất tiếc phải thông báo rằng hồ sơ của bạn chưa phù hợp ở thời điểm hiện tại.\nChúc bạn sớm tìm được cơ hội phù hợp hơn.\n\nTrân trọng,\nAI CV Service HR Team`,
+    };
+  };
+
+  const openEmailModal = (row) => {
+    const inferredResult = row.status === 'rejected' ? 'rejected' : 'accepted';
+    const template = buildEmailTemplate(row, inferredResult);
+    setEmailTarget(row);
+    setEmailResult(inferredResult);
+    setEmailSubject(template.subject);
+    setEmailMessage(template.message);
+    setIsEmailOpen(true);
+  };
+
+  const buildNotifiedNotes = (prevNotes = '') => {
+    const markerPrefix = '[MAIL_SENT]';
+    const cleanedNotes = (prevNotes || '')
+      .split('\n')
+      .filter((line) => !line.startsWith(markerPrefix))
+      .join('\n')
+      .trim();
+    const marker = `${markerPrefix} ${new Date().toISOString()}`;
+    return cleanedNotes ? `${cleanedNotes}\n${marker}` : marker;
+  };
+
   const columns = [
     {
       title: 'Tên ứng viên',
@@ -87,17 +138,44 @@ function HRCandidatesPage() {
       key: 'name',
       render: (_, row) => (
         <div>
-          <div className="text-[20px] font-semibold">{row.candidate_name || `Candidate #${row.candidate_id}`}</div>
-          <div className="text-[16px] text-[#6b7289]">✉ {row.candidate_email || '-'}</div>
+          <div className="text-[16px] font-semibold leading-tight">{row.candidate_name || `Candidate #${row.candidate_id}`}</div>
+          <div className="text-[13px] text-[#6b7289]">✉ {row.candidate_email || '-'}</div>
         </div>
       ),
     },
-    { title: 'Vị trí', dataIndex: 'job_title', key: 'job_title', className: 'text-[18px]' },
+    { title: 'Vị trí', dataIndex: 'job_title', key: 'job_title', className: 'text-[14px]' },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (value) => <Tag color={statusTone[value] || 'default'} className="!rounded-full !px-3 !text-[26px]">{value}</Tag>,
+      render: (value, row) => (
+        <div className="flex min-w-[180px] flex-col gap-2">
+          <Tag color={statusTone[value] || 'default'} className="!m-0 !w-fit !rounded-full !px-3 !py-1 !text-[12px] !font-medium !leading-[16px]">
+            {normalizeStatusLabel(value)}
+          </Tag>
+          <Select
+            size="small"
+            value={value}
+            className="!w-full"
+            options={[
+              { value: 'pending', label: 'Đang chờ' },
+              { value: 'accepted', label: 'Đạt yêu cầu' },
+              { value: 'rejected', label: 'Chưa phù hợp' },
+            ]}
+            onChange={async (nextStatus) => {
+              try {
+                await reviewApplicationMutation.mutateAsync({
+                  applicationId: row.id,
+                  payload: { status: nextStatus },
+                });
+                message.success('Đã cập nhật trạng thái ứng viên');
+              } catch (error) {
+                message.error(error?.response?.data?.detail || 'Không thể cập nhật trạng thái');
+              }
+            }}
+          />
+        </div>
+      ),
     },
     {
       title: 'Ngày ứng tuyển',
@@ -129,7 +207,7 @@ function HRCandidatesPage() {
       key: 'actions',
       render: (_, row) => (
         <Space>
-          <Button icon={<MailOutlined />} type="text" />
+          <Button icon={<MailOutlined />} type="text" onClick={() => openEmailModal(row)} />
           <Button
             icon={<CalendarOutlined />}
             type="text"
@@ -229,14 +307,14 @@ function HRCandidatesPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Title level={2} className="!mb-1 !text-[52px]">Quản lý ứng viên</Title>
-          <Text className="!text-[30px] !text-[#6b7289]">Theo dõi và quản lý toàn bộ ứng viên ứng tuyển</Text>
+          <Title level={2} className="!mb-1 !text-[40px]">Quản lý ứng viên</Title>
+          <Text className="!text-[20px] !text-[#6b7289]">Theo dõi và quản lý toàn bộ ứng viên ứng tuyển</Text>
         </div>
 
         <Space>
           <Button
             type="primary"
-            className="!h-[56px] !rounded-[14px] !bg-gradient-to-r !from-blue-600 !to-blue-500 !text-[18px]"
+            className="!h-[50px] !rounded-[14px] !bg-gradient-to-r !from-blue-600 !to-blue-500 !text-[16px]"
             icon={<LinkedinOutlined />}
             onClick={() => setIsLinkedinOpen(true)}
           >
@@ -244,7 +322,7 @@ function HRCandidatesPage() {
           </Button>
           <Button
             type="primary"
-            className="!h-[56px] !rounded-[14px] !border-0 !bg-gradient-to-r !from-violet-600 !to-pink-600 !text-[18px]"
+            className="!h-[50px] !rounded-[14px] !border-0 !bg-gradient-to-r !from-violet-600 !to-pink-600 !text-[16px]"
             icon={<StarOutlined />}
             onClick={() => setIsAiOpen(true)}
           >
@@ -285,9 +363,105 @@ function HRCandidatesPage() {
         rowKey="id"
         loading={isAllJobsMode ? companyApplicationsLoading : applicationsLoading}
         pagination={false}
+        scroll={{ x: 980, y: 520 }}
         className="panel-card"
       />
       {!jobs.length && <p className="mt-3 text-[16px] text-[#6b7289]">Chưa có job để quản lý ứng viên. Vui lòng tạo job tại trang Tin tuyển dụng.</p>}
+
+      <Modal
+        open={isEmailOpen}
+        onCancel={() => {
+          setIsEmailOpen(false);
+          setEmailTarget(null);
+        }}
+        footer={null}
+        width={820}
+        title={<span className="text-[30px]">Soạn email kết quả ứng tuyển</span>}
+      >
+        <Card className="panel-card">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 text-[13px] text-[#6b7289]">Ứng viên</div>
+              <div className="text-[15px] font-semibold">{emailTarget?.candidate_name || '-'}</div>
+            </div>
+            <div>
+              <div className="mb-1 text-[13px] text-[#6b7289]">Email nhận</div>
+              <div className="text-[15px] font-semibold">{emailTarget?.candidate_email || '-'}</div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-1 text-[13px] text-[#6b7289]">Kết quả</div>
+            <Select
+              value={emailResult}
+              className="!w-full"
+              options={[
+                { value: 'accepted', label: 'Đạt yêu cầu' },
+                { value: 'rejected', label: 'Chưa phù hợp' },
+              ]}
+              onChange={(next) => {
+                setEmailResult(next);
+                const template = buildEmailTemplate(emailTarget, next);
+                setEmailSubject(template.subject);
+                setEmailMessage(template.message);
+              }}
+            />
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-1 text-[13px] text-[#6b7289]">Tiêu đề</div>
+            <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-1 text-[13px] text-[#6b7289]">Nội dung email</div>
+            <Input.TextArea rows={8} value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)} />
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <Button
+              type="primary"
+              loading={sendGmailEmailMutation.isPending}
+              onClick={async () => {
+                const toEmail = emailTarget?.candidate_email;
+                if (!toEmail) {
+                  message.error('Không tìm thấy email ứng viên');
+                  return;
+                }
+
+                if (!emailSubject.trim() || !emailMessage.trim()) {
+                  message.error('Vui lòng nhập đầy đủ tiêu đề và nội dung email');
+                  return;
+                }
+
+                try {
+                  await sendGmailEmailMutation.mutateAsync({
+                    to_email: toEmail,
+                    subject: emailSubject.trim(),
+                    body: emailMessage.trim(),
+                  });
+
+                  await reviewApplicationMutation.mutateAsync({
+                    applicationId: emailTarget.id,
+                    payload: {
+                      status: emailResult,
+                      notes: buildNotifiedNotes(emailTarget.notes),
+                    },
+                  });
+
+                  message.success(`Đã gửi email trực tiếp tới ${toEmail}`);
+                  setIsEmailOpen(false);
+                  setEmailTarget(null);
+                } catch (error) {
+                  message.error(error?.response?.data?.detail || 'Không thể gửi email trực tiếp');
+                }
+              }}
+            >
+              Gửi email ngay
+            </Button>
+          </div>
+        </Card>
+      </Modal>
 
       <Modal
         open={isLinkedinOpen}
@@ -385,6 +559,7 @@ function HRCandidatesPage() {
               columns={aiColumns}
               dataSource={aiResultRows}
               pagination={false}
+              scroll={{ x: 900, y: 380 }}
             />
           </div>
         )}

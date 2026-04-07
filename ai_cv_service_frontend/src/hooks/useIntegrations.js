@@ -15,6 +15,10 @@ export function useSendTestEmail() {
     return useMutation({ mutationFn: integrationService.sendTestEmail });
 }
 
+export function useSendGmailEmail() {
+    return useMutation({ mutationFn: integrationService.sendGmailEmail });
+}
+
 export function useCreateInterview() {
     return useMutation({ mutationFn: interviewService.create });
 }

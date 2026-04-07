@@ -1,14 +1,22 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, EmailStr, Field
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.integrations.gmail_integration import send_email_via_gmail
 from app.integrations.google_calendar_integration import create_interview_event
 from app.integrations.linkedin_integration import exchange_code_for_profile, get_linkedin_oauth_url
 from app.models import User
+from app.models.enums import UserRole
 
 router = APIRouter()
+
+
+class GmailSendRequest(BaseModel):
+    to_email: EmailStr
+    subject: str = Field(min_length=1, max_length=255)
+    body: str = Field(min_length=1, max_length=5000)
 
 
 @router.get("/linkedin/oauth-url")
@@ -40,6 +48,22 @@ async def send_test_email(
         body=f"Hello from {current_user.full_name}, email integration is configured.",
     )
     return {"message": "Email task triggered"}
+
+
+@router.post("/gmail/send")
+async def send_email(
+    payload: GmailSendRequest,
+    current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
+) -> dict[str, str]:
+    send_email_via_gmail(
+        to_email=str(payload.to_email),
+        subject=payload.subject,
+        body=payload.body,
+    )
+    return {
+        "message": f"Email đã được gửi bởi {current_user.full_name}",
+        "to_email": str(payload.to_email),
+    }
 
 
 @router.post("/calendar/test-event")

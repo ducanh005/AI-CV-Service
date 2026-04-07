@@ -22,4 +22,8 @@ export const integrationService = {
         );
         return data;
     },
+    sendGmailEmail: async (payload) => {
+        const { data } = await api.post("/integrations/gmail/send", payload);
+        return data;
+    },
 };

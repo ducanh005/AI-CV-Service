@@ -5,34 +5,15 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models import AIScore
+from app.core.exceptions import AppException
+from app.models import AIScore, Application
+from app.models.enums import ApplicationStatus
 from app.schemas.ai import HRScoreCriteria
 
 
 class AICVScoringService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
-
-    @staticmethod
-    def heuristic_score(cv_text: str, job_description: str, criteria: HRScoreCriteria | None = None) -> tuple[float, str]:
-        cv_words = {word.strip().lower() for word in cv_text.split() if word.strip()}
-        jd_words = {word.strip().lower() for word in job_description.split() if word.strip()}
-        if not jd_words:
-            return 0.0, "No job description words provided"
-
-        overlap = len(cv_words.intersection(jd_words))
-        base_score = min(100.0, round((overlap / max(1, len(jd_words))) * 100.0, 2))
-
-        required_bonus = 0.0
-        matched_required = 0
-        if criteria and criteria.required_skills:
-            required_tokens = {skill.strip().lower() for skill in criteria.required_skills if skill.strip()}
-            matched_required = len(required_tokens.intersection(cv_words))
-            required_bonus = round((matched_required / max(1, len(required_tokens))) * 20.0, 2)
-
-        score = min(100.0, round(base_score * 0.8 + required_bonus, 2))
-        reasoning = f"Matched {overlap} JD terms and {matched_required} required skills"
-        return score, reasoning
 
     @staticmethod
     def _extract_json_object(text: str) -> dict:
@@ -76,49 +57,8 @@ class AICVScoringService:
             f"JOB_DESCRIPTION:\n{job_description}"
         )
 
-        if settings.OPENAI_API_KEY:
-            try:
-                async with httpx.AsyncClient(timeout=settings.OPENAI_TIMEOUT_SECONDS) as client:
-                    response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": settings.OPENAI_MODEL,
-                            "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a strict JSON API that returns only valid JSON.",
-                                },
-                                {
-                                    "role": "user",
-                                    "content": prompt,
-                                },
-                            ],
-                            "temperature": 0.2,
-                            "response_format": {"type": "json_object"},
-                        },
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-
-                model_text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
-                if not model_text:
-                    raise ValueError("Empty OpenAI response")
-
-                parsed = self._extract_json_object(model_text)
-                raw_score = float(parsed.get("score", 0))
-                score = max(0.0, min(100.0, round(raw_score, 2)))
-                reasoning = str(parsed.get("reasoning", "AI score generated")).strip() or "AI score generated"
-                return score, reasoning[:280]
-            except Exception:
-                # Fall back to AI Studio / heuristic if OpenAI call fails.
-                pass
-
         if not settings.AISTUDIO_API_KEY:
-            return self.heuristic_score(cv_text, job_description, criteria)
+            raise AppException("AISTUDIO_API_KEY is not configured", status_code=500)
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/{settings.AISTUDIO_MODEL}:generateContent"
@@ -158,21 +98,37 @@ class AICVScoringService:
             score = max(0.0, min(100.0, round(raw_score, 2)))
             reasoning = str(parsed.get("reasoning", "AI score generated")).strip() or "AI score generated"
             return score, reasoning[:280]
-        except Exception:
-            return self.heuristic_score(cv_text, job_description, criteria)
+        except Exception as exc:
+            raise AppException(f"Gemini scoring failed: {exc}", status_code=502) from exc
 
-    async def upsert_application_score(self, application_id: int, score: float, reasoning: str) -> AIScore:
+    async def upsert_application_score(
+        self,
+        application_id: int,
+        score: float,
+        reasoning: str,
+        min_score: float | None = None,
+    ) -> AIScore:
         from sqlalchemy import select
+
+        normalized_score = max(0.0, min(100.0, round(score, 2)))
+        threshold = settings.AI_DEFAULT_PASS_SCORE if min_score is None else min_score
+        threshold = max(0.0, min(100.0, float(threshold)))
+
+        application = await self.db.scalar(select(Application).where(Application.id == application_id))
+        if application:
+            application.status = (
+                ApplicationStatus.ACCEPTED.value if normalized_score >= threshold else ApplicationStatus.REJECTED.value
+            )
 
         existing = await self.db.scalar(select(AIScore).where(AIScore.application_id == application_id))
         if existing:
-            existing.score = score
+            existing.score = normalized_score
             existing.reasoning = reasoning
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
 
-        ai_score = AIScore(application_id=application_id, score=score, reasoning=reasoning)
+        ai_score = AIScore(application_id=application_id, score=normalized_score, reasoning=reasoning)
         self.db.add(ai_score)
         await self.db.commit()
         await self.db.refresh(ai_score)

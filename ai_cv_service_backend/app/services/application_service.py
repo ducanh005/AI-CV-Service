@@ -2,6 +2,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.exceptions import AppException
 from app.models import Application, CV, Job
 from app.models.enums import ApplicationStatus
@@ -10,6 +11,31 @@ from app.models.enums import ApplicationStatus
 class ApplicationService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    async def _sync_scored_pending_statuses(
+        self,
+        applications: list[Application],
+        min_score: float | None = None,
+    ) -> None:
+        threshold = settings.AI_DEFAULT_PASS_SCORE if min_score is None else min_score
+        threshold = max(0.0, min(100.0, float(threshold)))
+
+        changed = False
+        for application in applications:
+            if application.status != ApplicationStatus.PENDING.value:
+                continue
+            if not application.ai_score:
+                continue
+
+            application.status = (
+                ApplicationStatus.ACCEPTED.value
+                if application.ai_score.score >= threshold
+                else ApplicationStatus.REJECTED.value
+            )
+            changed = True
+
+        if changed:
+            await self.db.commit()
 
     async def apply(self, job_id: int, candidate_id: int, cv_id: int) -> Application:
         job = await self.db.scalar(select(Job).where(Job.id == job_id, Job.deleted_at.is_(None)))
@@ -45,6 +71,8 @@ class ApplicationService:
         )
         if not application:
             raise AppException("Application not found", status_code=404)
+
+        await self._sync_scored_pending_statuses([application])
         return application
 
     async def review(
@@ -79,6 +107,7 @@ class ApplicationService:
                 .limit(page_size)
             )
         ).all()
+        await self._sync_scored_pending_statuses(list(applications))
         return list(applications), int(total or 0)
 
     async def list_for_candidate(self, candidate_id: int, page: int, page_size: int) -> tuple[list[Application], int]:
@@ -99,6 +128,7 @@ class ApplicationService:
                 .limit(page_size)
             )
         ).all()
+        await self._sync_scored_pending_statuses(list(applications))
         return list(applications), int(total or 0)
 
     async def list_for_company(self, company_id: int, page: int, page_size: int) -> tuple[list[Application], int]:
@@ -126,6 +156,7 @@ class ApplicationService:
                 .limit(page_size)
             )
         ).all()
+        await self._sync_scored_pending_statuses(list(applications))
         return list(applications), int(total or 0)
 
     async def list_all(self, page: int, page_size: int) -> tuple[list[Application], int]:
@@ -144,4 +175,5 @@ class ApplicationService:
                 .limit(page_size)
             )
         ).all()
+        await self._sync_scored_pending_statuses(list(applications))
         return list(applications), int(total or 0)

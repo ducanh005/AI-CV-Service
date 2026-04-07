@@ -10,16 +10,21 @@ import { Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Select, Tag, Ty
 import { useState } from 'react';
 
 import { useCreateJob, useDeleteJob, useJobs, useUpdateJob } from '../../hooks/useJobs';
+import { useAuthStore } from '../../store/authStore';
 
 const { Title, Text } = Typography;
 
 function HRJobsPage() {
+  const { user } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [form] = Form.useForm();
 
   const { data } = useJobs({ page: 1, page_size: 50 });
-  const jobs = data?.items || [];
+  const allJobs = data?.items || [];
+  const jobs = user?.role === 'hr' && user?.company_id
+    ? allJobs.filter((job) => job.company_id === user.company_id)
+    : allJobs;
 
   const createMutation = useCreateJob();
   const updateMutation = useUpdateJob();
@@ -39,17 +44,41 @@ function HRJobsPage() {
 
   const onSubmit = async () => {
     const values = await form.validateFields();
+    const toNumberOrUndefined = (value) => {
+      if (value === undefined || value === null || value === '') {
+        return undefined;
+      }
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
+    const payload = {
+      ...values,
+      salary_min: toNumberOrUndefined(values.salary_min),
+      salary_max: toNumberOrUndefined(values.salary_max),
+      required_skills: values.required_skills || [],
+    };
+
+    if (
+      typeof payload.salary_min === 'number' &&
+      typeof payload.salary_max === 'number' &&
+      payload.salary_min > payload.salary_max
+    ) {
+      message.error('Lương tối thiểu không được lớn hơn lương tối đa');
+      return;
+    }
+
     try {
       if (editingJob) {
-        await updateMutation.mutateAsync({ id: editingJob.id, payload: values });
+        await updateMutation.mutateAsync({ id: editingJob.id, payload });
         message.success('Cập nhật tin tuyển dụng thành công');
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
         message.success('Đăng tin tuyển dụng thành công');
       }
       setIsModalOpen(false);
-    } catch {
-      message.error('Không thể lưu tin tuyển dụng');
+    } catch (error) {
+      message.error(error?.response?.data?.detail || 'Không thể lưu tin tuyển dụng');
     }
   };
 
@@ -134,14 +163,14 @@ function HRJobsPage() {
         cancelText="Hủy"
         confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="vertical" form={form} initialValues={{ status: 'open' }}>
-          <Form.Item name="title" label="Tiêu đề" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Mô tả" rules={[{ required: true }]}><Input.TextArea rows={4} /></Form.Item>
+        <Form layout="vertical" form={form} initialValues={{ status: 'open', required_skills: [] }}>
+          <Form.Item name="title" label="Tiêu đề" rules={[{ required: true }, { min: 2, message: 'Tiêu đề tối thiểu 2 ký tự' }]}><Input /></Form.Item>
+          <Form.Item name="description" label="Mô tả" rules={[{ required: true }, { min: 10, message: 'Mô tả tối thiểu 10 ký tự' }]}><Input.TextArea rows={4} /></Form.Item>
           <Form.Item name="location" label="Địa điểm"><Input /></Form.Item>
           <Form.Item name="salary_min" label="Lương tối thiểu"><Input type="number" /></Form.Item>
           <Form.Item name="salary_max" label="Lương tối đa"><Input type="number" /></Form.Item>
           <Form.Item name="required_skills" label="Kỹ năng"><Select mode="tags" /></Form.Item>
-          <Form.Item name="status" label="Trạng thái"><Select options={[{ value: 'open', label: 'Đang mở' }, { value: 'closed', label: 'Đã đóng' }]} /></Form.Item>
+          <Form.Item name="status" label="Trạng thái" rules={[{ required: true }]}><Select options={[{ value: 'open', label: 'Đang mở' }, { value: 'closed', label: 'Đã đóng' }]} /></Form.Item>
         </Form>
       </Modal>
     </div>

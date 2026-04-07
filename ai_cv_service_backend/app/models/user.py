@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Boolean, Date, ForeignKey, String
+from sqlalchemy import Boolean, Date, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -21,6 +21,10 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
     address: Mapped[str | None] = mapped_column(String(255))
     gender: Mapped[UserGender | None] = mapped_column(String(20))
     education: Mapped[str | None] = mapped_column(String(255))
+    google_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    google_profile_json: Mapped[str | None] = mapped_column(Text)
+    linkedin_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    linkedin_profile_json: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False, index=True)

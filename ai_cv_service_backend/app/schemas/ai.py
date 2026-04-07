@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -69,3 +71,48 @@ class NotifyScreeningResultResponse(BaseModel):
     score: float
     min_score: float
     passed: bool
+
+
+class RankCandidatesAsyncRequest(BaseModel):
+    job_id: int
+    min_score: float = Field(default=60.0, ge=0.0, le=100.0)
+    notify_candidates: bool = False
+    criteria: HRScoreCriteria | None = None
+
+
+class RankCandidatesAsyncSubmitResponse(BaseModel):
+    scoring_job_id: str
+    status: str
+    total_items: int
+    submitted_items: int
+    failed_items: int
+    queued_items: int
+
+
+class RankCandidatesAsyncItemResponse(BaseModel):
+    request_id: str
+    application_id: int
+    candidate_id: int | None = None
+    candidate_name: str | None = None
+    candidate_email: str | None = None
+    status: str
+    score: float | None = None
+    passed: bool | None = None
+    reasoning: str | None = None
+    provider: str | None = None
+    error: str | None = None
+    processed_at: datetime | None = None
+
+
+class RankCandidatesAsyncStatusResponse(BaseModel):
+    scoring_job_id: str
+    status: str
+    job_id: int
+    min_score: float
+    notify_candidates: bool
+    total_items: int
+    submitted_items: int
+    processed_items: int
+    failed_items: int
+    pending_items: int
+    items: list[RankCandidatesAsyncItemResponse]

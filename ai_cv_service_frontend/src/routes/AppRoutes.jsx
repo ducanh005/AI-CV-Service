@@ -4,6 +4,7 @@ import ProtectedRoute from './ProtectedRoute';
 import { AuthProvider, useAuthStore } from '../store/authStore';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
+import SocialOAuthCallbackPage from '../pages/auth/SocialOAuthCallbackPage';
 import UserLayout from '../layouts/UserLayout';
 import HRLayout from '../layouts/HRLayout';
 import UserDashboardPage from '../pages/user/UserDashboardPage';
@@ -40,6 +41,7 @@ function AppRoutesContent() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/oauth/:provider/callback" element={<SocialOAuthCallbackPage />} />
 
       <Route element={<ProtectedRoute allowedRoles={['user']} />}>
         <Route path="/user" element={<UserLayout />}>

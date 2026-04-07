@@ -1,10 +1,13 @@
 import { UserAddOutlined } from '@ant-design/icons';
-import { Alert, Button, Form, Input, Select, Typography } from 'antd';
+import { Alert, Button, Divider, Form, Input, Select, Typography, message } from 'antd';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AuthFooterHint from '../../components/auth/AuthFooterHint';
 import AuthLayout from '../../layouts/AuthLayout';
 import { useRegister } from '../../hooks/useAuth';
+import { authService } from '../../services/authService';
+import { buildSocialState, getSocialProviderLabel } from '../../utils/socialAuth';
 
 const { Text } = Typography;
 
@@ -17,6 +20,9 @@ const roleOptions = [
 function RegisterPage() {
   const navigate = useNavigate();
   const registerMutation = useRegister();
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState('');
+
+  const socialEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED !== 'false';
 
   const onFinish = async (values) => {
     try {
@@ -30,6 +36,23 @@ function RegisterPage() {
       }
     } catch (error) {
       // handled in UI
+    }
+  };
+
+  const onSocialAuthStart = async (provider, mode) => {
+    setSocialLoadingProvider(provider);
+    try {
+      const result = await authService.oauthAuthorize(provider, mode, buildSocialState(mode));
+      if (!result?.auth_url) {
+        throw new Error('Không nhận được URL xác thực social');
+      }
+      window.location.href = result.auth_url;
+    } catch (error) {
+      message.error(
+        error?.response?.data?.detail ||
+          `Không thể bắt đầu đăng ký bằng ${getSocialProviderLabel(provider)}`,
+      );
+      setSocialLoadingProvider('');
     }
   };
 
@@ -89,6 +112,30 @@ function RegisterPage() {
             Đăng nhập
           </button>
         </div>
+
+        {socialEnabled && (
+          <>
+            <Divider className="!my-6 !text-[16px] !text-[#6b7289]">Hoặc đăng ký nhanh với</Divider>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Button
+                block
+                onClick={() => onSocialAuthStart('google', 'register')}
+                loading={socialLoadingProvider === 'google'}
+                className="!h-[48px] !rounded-[12px]"
+              >
+                Google (Gmail)
+              </Button>
+              <Button
+                block
+                onClick={() => onSocialAuthStart('linkedin', 'register')}
+                loading={socialLoadingProvider === 'linkedin'}
+                className="!h-[48px] !rounded-[12px]"
+              >
+                LinkedIn
+              </Button>
+            </div>
+          </>
+        )}
       </Form>
 
       <AuthFooterHint type="register" />

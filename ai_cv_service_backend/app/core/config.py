@@ -18,10 +18,6 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     JWT_ALGORITHM: str = "HS256"
 
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4.1-mini"
-    OPENAI_TIMEOUT_SECONDS: int = 25
-
     AISTUDIO_API_KEY: str = ""
     AISTUDIO_MODEL: str = "gemini-1.5-flash"
     AISTUDIO_TIMEOUT_SECONDS: int = 25
@@ -29,6 +25,13 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_cv_service"
     REDIS_URL: str = "redis://localhost:6379/0"
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/%2F"
+    RABBITMQ_EXCHANGE: str = "recruitment.events"
+    RABBITMQ_SCORING_REQUEST_ROUTING_KEY: str = "cv.scoring.request"
+    RABBITMQ_SCORING_RESULT_ROUTING_KEY: str = "cv.scoring.result"
+    RABBITMQ_SCORING_FAILED_ROUTING_KEY: str = "cv.scoring.failed"
+    RABBITMQ_RESULT_QUEUE: str = "cv.scoring.result.queue"
+    RABBITMQ_FAILED_QUEUE: str = "cv.scoring.failed.queue"
 
     BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

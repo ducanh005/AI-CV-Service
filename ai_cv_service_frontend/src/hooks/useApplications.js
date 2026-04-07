@@ -13,19 +13,21 @@ export function useApplyJob() {
     });
 }
 
-export function useApplicationsByJob(params, enabled = true) {
+export function useApplicationsByJob(params, enabled = true, options = {}) {
     return useQuery({
         queryKey: ["applications", params],
         queryFn: () => applicationService.listByJob(params),
         enabled,
+        ...options,
     });
 }
 
-export function useApplicationsByCompany(params, enabled = true) {
+export function useApplicationsByCompany(params, enabled = true, options = {}) {
     return useQuery({
         queryKey: ["applications", "company", params],
         queryFn: () => applicationService.listByCompany(params),
         enabled,
+        ...options,
     });
 }
 

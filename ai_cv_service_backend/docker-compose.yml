@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   api:
     build: .
@@ -14,6 +12,7 @@ services:
     depends_on:
       - db
       - redis
+      - rabbitmq
 
   worker:
     build: .
@@ -26,6 +25,48 @@ services:
     depends_on:
       - api
       - redis
+      - rabbitmq
+
+  scoring_result_consumer:
+    build: .
+    container_name: ai_cv_scoring_result_consumer
+    command: python -m app.workers.scoring_result_consumer
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - rabbitmq
+
+  scoring_ai:
+    build: ../scoring_cv_ai
+    container_name: ai_cv_scoring_ai
+    command: uvicorn app.main:app --host 0.0.0.0 --port 5005 --reload
+    volumes:
+      - ../scoring_cv_ai:/app
+      - ./uploads:/app/uploads
+    ports:
+      - "5005:5005"
+    environment:
+      APP_NAME: CV Scoring AI Service
+      APP_ENV: ${APP_ENV:-development}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      SERVICE_PORT: 5005
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
+      RABBITMQ_REQUEST_ROUTING_KEY: ${RABBITMQ_SCORING_REQUEST_ROUTING_KEY}
+      RABBITMQ_RESULT_ROUTING_KEY: ${RABBITMQ_SCORING_RESULT_ROUTING_KEY}
+      RABBITMQ_FAILED_ROUTING_KEY: ${RABBITMQ_SCORING_FAILED_ROUTING_KEY}
+      RABBITMQ_REQUEST_QUEUE: cv.scoring.request.queue
+      ENABLE_RABBITMQ_CONSUMER: true
+      CV_BASE_DIR: /app
+      CV_ALLOWED_ROOTS: /app/uploads/cvs
+      AISTUDIO_API_KEY: ${AISTUDIO_API_KEY}
+      AISTUDIO_MODEL: ${AISTUDIO_MODEL}
+      AISTUDIO_TIMEOUT_SECONDS: ${AISTUDIO_TIMEOUT_SECONDS}
+    depends_on:
+      - rabbitmq
 
   db:
     image: postgres:16
@@ -46,6 +87,13 @@ services:
     container_name: ai_cv_redis
     ports:
       - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: ai_cv_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
 
 volumes:
   postgres_data:

@@ -8,7 +8,7 @@ Huong dan nhanh de chay du an sau khi clone.
 - Python 3.11+ (khuyen nghi)
 - Node.js 18+ va npm
 - Docker Desktop (neu muon chay bang Docker)
-- PostgreSQL + Redis (neu chay local khong Docker)
+- PostgreSQL + Redis + RabbitMQ (neu chay local khong Docker)
 
 ## 2) Clone project
 
@@ -47,6 +47,7 @@ Cap nhat cac bien trong `.env`:
 
 - `DATABASE_URL`
 - `REDIS_URL`
+- `RABBITMQ_URL`
 - `JWT_SECRET_KEY`
 - Cac khoa tich hop (Gmail/LinkedIn/Google Calendar/AI) neu can
 
@@ -65,6 +66,28 @@ Mo terminal moi trong `ai_cv_service_backend`:
 ```bash
 source .venv/Scripts/activate
 celery -A app.workers.celery_app.celery_app worker --loglevel=info
+```
+
+### Chay scoring result consumer (bat buoc cho async AI scoring)
+
+Mo terminal moi trong `ai_cv_service_backend`:
+
+```bash
+source .venv/Scripts/activate
+python -m app.workers.scoring_result_consumer
+```
+
+### Chay ai-service cham diem CV
+
+Tu thu muc goc project:
+
+```bash
+cd scoring_cv_ai
+python -m venv .venv
+source .venv/Scripts/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 5005
 ```
 
 ## 4) Setup Frontend (React + Vite)
@@ -104,6 +127,7 @@ docker compose up --build
 
 API: http://localhost:8000
 Swagger: http://localhost:8000/docs
+AI scoring health: http://localhost:5005/health
 
 ## 6) Seed du lieu mau (tuy chon)
 
@@ -123,8 +147,10 @@ Tai khoan test (password: `Password@123`):
 
 1. Chay backend (`uvicorn ...`)
 2. Chay worker (neu can)
-3. Chay frontend (`npm run dev`)
-4. Truy cap frontend va dang nhap test account
+3. Chay scoring result consumer
+4. Chay ai-service scoring_cv_ai
+5. Chay frontend (`npm run dev`)
+6. Truy cap frontend va dang nhap test account
 
 ## 8) Loi thuong gap
 
@@ -132,3 +158,4 @@ Tai khoan test (password: `Password@123`):
 - Loi CORS: kiem tra cau hinh CORS trong backend env/config.
 - Dang nhap loi 401 lien tuc: xoa localStorage va dang nhap lai.
 - Worker khong nhan task: kiem tra Redis va command Celery.
+- Async AI scoring khong chay: kiem tra RabbitMQ, scoring_result_consumer, scoring_cv_ai service va shared uploads volume.

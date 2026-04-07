@@ -21,6 +21,25 @@ export function useRankCandidates() {
     return useMutation({ mutationFn: cvService.rankCandidates });
 }
 
+export function useRankCandidatesAsyncSubmit() {
+    return useMutation({ mutationFn: cvService.rankCandidatesAsyncSubmit });
+}
+
+export function useRankCandidatesAsyncStatus(scoringJobId, enabled = true) {
+    return useQuery({
+        queryKey: ["ai-rank-async-status", scoringJobId],
+        queryFn: () => cvService.rankCandidatesAsyncStatus(scoringJobId),
+        enabled: enabled && Boolean(scoringJobId),
+        refetchInterval: (query) => {
+            const status = query.state.data?.status;
+            if (status === "completed" || status === "partial_failed" || status === "failed") {
+                return false;
+            }
+            return 2000;
+        },
+    });
+}
+
 export function useNotifyScreeningResult() {
     return useMutation({ mutationFn: cvService.notifyScreeningResult });
 }

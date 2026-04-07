@@ -20,7 +20,18 @@ async def create_job(
     db: AsyncSession = Depends(get_db_session),
 ) -> JobResponse:
     if current_user.role.name == UserRole.HR.value and not current_user.company_id:
-        raise AppException("HR user must belong to a company")
+        fallback_company = await db.scalar(select(Company).where(Company.deleted_at.is_(None)).order_by(Company.id.asc()))
+        if not fallback_company:
+            fallback_company = Company(
+                name=f"{current_user.full_name} Company",
+                description="Auto-created company for HR onboarding",
+            )
+            db.add(fallback_company)
+            await db.flush()
+
+        current_user.company_id = fallback_company.id
+        await db.commit()
+        await db.refresh(current_user)
 
     company_id = current_user.company_id
     if current_user.role.name == UserRole.ADMIN.value:

@@ -5,6 +5,8 @@ from app.models.cv import CV
 from app.models.interview import Interview
 from app.models.job import Job
 from app.models.role import Role
+from app.models.scoring_job import ScoringJob
+from app.models.scoring_job_item import ScoringJobItem
 from app.models.token_blacklist import TokenBlacklist
 from app.models.user import User
 
@@ -16,6 +18,8 @@ __all__ = [
     "Interview",
     "Job",
     "Role",
+    "ScoringJob",
+    "ScoringJobItem",
     "TokenBlacklist",
     "User",
 ]

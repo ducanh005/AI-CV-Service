@@ -1,6 +1,6 @@
 # Smart Recruitment & HR Management Platform - Backend
 
-Production-ready backend service built with FastAPI, async SQLAlchemy, PostgreSQL, JWT auth, Celery, and Redis.
+Production-ready backend service built with FastAPI, async SQLAlchemy, PostgreSQL, JWT auth, Celery, Redis, and RabbitMQ-based async AI scoring.
 
 ## Tech Stack
 
@@ -10,6 +10,7 @@ Production-ready backend service built with FastAPI, async SQLAlchemy, PostgreSQ
 - JWT (access + refresh)
 - bcrypt password hashing
 - Celery + Redis
+- RabbitMQ (event bus for async CV scoring)
 - Pydantic validation
 - python-dotenv environment config
 - Docker + docker-compose
@@ -42,7 +43,7 @@ scripts/
 cp .env.example .env
 ```
 
-2. Update `.env` values (JWT secret, DB/Redis URLs, Gmail/LinkedIn/Google keys, AI Studio key).
+2. Update `.env` values (JWT secret, DB/Redis/RabbitMQ URLs, Gmail/LinkedIn/Google keys, AI Studio key).
 
 ## Local Run (without Docker)
 
@@ -54,7 +55,7 @@ source .venv/Scripts/activate  # Windows Git Bash
 pip install -r requirements.txt
 ```
 
-2. Ensure PostgreSQL and Redis are running.
+2. Ensure PostgreSQL, Redis, and RabbitMQ are running.
 
 3. Start API:
 
@@ -66,6 +67,12 @@ uvicorn app.main:app --reload
 
 ```bash
 celery -A app.workers.celery_app.celery_app worker --loglevel=info
+```
+
+5. Start scoring result consumer:
+
+```bash
+python -m app.workers.scoring_result_consumer
 ```
 
 ## Docker Run
@@ -133,6 +140,8 @@ Seeded test accounts (password: `Password@123`):
 
 - POST `/api/v1/ai/score-cv`
 - POST `/api/v1/ai/rank-candidates`
+- POST `/api/v1/ai/rank-candidates/async`
+- GET `/api/v1/ai/rank-candidates/async/{scoring_job_id}`
 
 ### Applications
 
@@ -157,6 +166,7 @@ Seeded test accounts (password: `Password@123`):
 - Role values: `user`, `hr`, `admin`
 - Jobs/Companies/Users implement soft-delete fields where needed.
 - CV upload now extracts text from PDF/DOCX files for downstream AI scoring.
-- AI screening supports HR criteria (`required_skills`, `preferred_skills`, `education_keywords`, `min_years_experience`) via Google AI Studio (Gemini) with heuristic fallback.
+- AI screening supports HR criteria (`required_skills`, `preferred_skills`, `education_keywords`, `min_years_experience`) via Google AI Studio (Gemini) only.
 - HR/Admin can rank and filter candidates for a job by score threshold using `/api/v1/ai/rank-candidates` and optionally trigger automatic screening result emails.
+- Async AI scoring flow uses RabbitMQ and stores per-request progress in DB tables (`scoring_jobs`, `scoring_job_items`).
 - Database schema SQL is provided in `scripts/schema.sql`.

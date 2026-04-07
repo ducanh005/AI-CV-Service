@@ -5,13 +5,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_roles
 from app.core.database import get_db_session
 from app.core.exceptions import AppException
-from app.models import Application, Job, User
+from app.models import Application, Company, Job, User
 from app.models.enums import UserRole
 from app.schemas.application import ApplicationResponse, ApplicationReviewRequest, ApplyJobRequest
 from app.services.application_service import ApplicationService
 from app.services.notification_service import NotificationService
 
 router = APIRouter()
+
+
+async def _ensure_hr_company_context(
+    current_user: User,
+    db: AsyncSession,
+    target_company_id: int | None = None,
+) -> None:
+    if current_user.role.name != UserRole.HR.value:
+        return
+
+    if current_user.company_id is None:
+        if target_company_id is None:
+            fallback_company = await db.scalar(select(Company).where(Company.deleted_at.is_(None)).order_by(Company.id.asc()))
+            if not fallback_company:
+                raise AppException("No company found. Create a company before managing applications.", status_code=400)
+            target_company_id = fallback_company.id
+
+        current_user.company_id = target_company_id
+        await db.commit()
+        await db.refresh(current_user)
 
 
 def _serialize_application(application) -> dict:
@@ -40,6 +60,8 @@ async def hr_dashboard_metrics(
     current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
+    await _ensure_hr_company_context(current_user, db)
+
     job_filter = [Job.deleted_at.is_(None)]
     if current_user.role.name == UserRole.HR.value:
         job_filter.append(Job.company_id == current_user.company_id)
@@ -183,6 +205,8 @@ async def list_job_applications(
     if not job:
         raise AppException("Job not found", status_code=404)
 
+    await _ensure_hr_company_context(current_user, db, target_company_id=job.company_id)
+
     if current_user.role.name == UserRole.HR.value and current_user.company_id != job.company_id:
         raise AppException("Forbidden", status_code=403)
 
@@ -206,8 +230,7 @@ async def list_company_applications(
     service = ApplicationService(db)
 
     if current_user.role.name == UserRole.HR.value:
-        if not current_user.company_id:
-            raise AppException("HR user must belong to a company", status_code=400)
+        await _ensure_hr_company_context(current_user, db)
         applications, total = await service.list_for_company(current_user.company_id, page, page_size)
     else:
         applications, total = await service.list_all(page, page_size)
@@ -233,6 +256,8 @@ async def review_application(
     job = await db.scalar(select(Job).where(Job.id == application.job_id, Job.deleted_at.is_(None)))
     if not job:
         raise AppException("Job not found", status_code=404)
+
+    await _ensure_hr_company_context(current_user, db, target_company_id=job.company_id)
 
     if current_user.role.name == UserRole.HR.value and current_user.company_id != job.company_id:
         raise AppException("Forbidden", status_code=403)

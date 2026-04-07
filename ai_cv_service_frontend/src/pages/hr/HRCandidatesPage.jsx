@@ -5,6 +5,7 @@ import {
   StarOutlined,
   LinkedinOutlined,
 } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   Form,
@@ -18,10 +19,15 @@ import {
   message,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '../../store/authStore';
 
-import { useApplicationsByCompany, useApplicationsByJob } from '../../hooks/useApplications';
+import { useApplicationsByJob } from '../../hooks/useApplications';
 import { useJobs } from '../../hooks/useJobs';
-import { useNotifyScreeningResult, useRankCandidates } from '../../hooks/useCV';
+import {
+  useNotifyScreeningResult,
+  useRankCandidatesAsyncStatus,
+  useRankCandidatesAsyncSubmit,
+} from '../../hooks/useCV';
 import { useCreateInterview } from '../../hooks/useIntegrations';
 import { useLinkedinOauthUrl } from '../../hooks/useIntegrations';
 
@@ -37,6 +43,8 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/a
 const uploadsBaseUrl = apiBaseUrl.replace(/\/api\/v1\/?$/, '');
 
 function HRCandidatesPage() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLinkedinOpen, setIsLinkedinOpen] = useState(false);
@@ -45,40 +53,89 @@ function HRCandidatesPage() {
   const [interviewTarget, setInterviewTarget] = useState(null);
   const [aiJobId, setAiJobId] = useState(undefined);
   const [aiThreshold, setAiThreshold] = useState('60');
-  const [aiResult, setAiResult] = useState(null);
-  const [selectedJobId, setSelectedJobId] = useState('all');
+  const [aiScoringJobId, setAiScoringJobId] = useState(null);
+  const [lastFinishedScoringJobId, setLastFinishedScoringJobId] = useState(null);
+  const [selectedJobId, setSelectedJobId] = useState(undefined);
   const [interviewForm] = Form.useForm();
 
   const linkedinMutation = useLinkedinOauthUrl();
-  const rankCandidatesMutation = useRankCandidates();
+  const rankCandidatesAsyncSubmitMutation = useRankCandidatesAsyncSubmit();
+  const { data: aiStatusData, isFetching: aiStatusFetching } = useRankCandidatesAsyncStatus(
+    aiScoringJobId,
+    isAiOpen && Boolean(aiScoringJobId)
+  );
   const notifyScreeningResultMutation = useNotifyScreeningResult();
   const createInterviewMutation = useCreateInterview();
-  const { data: jobsData } = useJobs({ page: 1, page_size: 50 });
-  const jobs = jobsData?.items || [];
-  const isAllJobsMode = selectedJobId === 'all';
+  const { data: jobsData } = useJobs({ page: 1, page_size: 100 });
   const { data: applicationsData, isLoading: applicationsLoading } = useApplicationsByJob(
     { jobId: selectedJobId, page: 1, pageSize: 100 },
-    Boolean(selectedJobId) && !isAllJobsMode
-  );
-  const { data: companyApplicationsData, isLoading: companyApplicationsLoading } = useApplicationsByCompany(
-    { page: 1, pageSize: 100 },
-    isAllJobsMode
+    Boolean(selectedJobId),
+    { refetchInterval: 5000 }
   );
 
+  const jobs = useMemo(() => {
+    const allJobs = jobsData?.items || [];
+    if (user?.role !== 'hr' || !user?.company_id) {
+      return allJobs;
+    }
+
+    return allJobs.filter((job) => job.company_id === user.company_id);
+  }, [jobsData?.items, user?.role, user?.company_id]);
+
   useEffect(() => {
-    if (!aiJobId && jobs.length) {
+    if (!jobs.length) {
+      if (aiJobId !== undefined) {
+        setAiJobId(undefined);
+      }
+      return;
+    }
+
+    const selectedExists = aiJobId !== undefined && jobs.some((job) => job.id === aiJobId);
+    if (!selectedExists) {
       setAiJobId(jobs[0].id);
     }
   }, [jobs, aiJobId]);
 
+  useEffect(() => {
+    if (!jobs.length) {
+      if (selectedJobId !== undefined) {
+        setSelectedJobId(undefined);
+      }
+      return;
+    }
+
+    const selectedExists = selectedJobId !== undefined && jobs.some((job) => job.id === selectedJobId);
+    if (!selectedExists) {
+      setSelectedJobId(jobs[0].id);
+    }
+  }, [jobs, selectedJobId]);
+
+  useEffect(() => {
+    if (!aiStatusData) {
+      return;
+    }
+
+    const isDone = ['completed', 'partial_failed', 'failed'].includes(aiStatusData.status);
+    if (!isDone) {
+      return;
+    }
+
+    if (lastFinishedScoringJobId === aiStatusData.scoring_job_id) {
+      return;
+    }
+
+    setLastFinishedScoringJobId(aiStatusData.scoring_job_id);
+    queryClient.invalidateQueries({ queryKey: ['applications'] });
+  }, [aiStatusData, lastFinishedScoringJobId, queryClient]);
+
   const dataSource = useMemo(() => {
-    const items = isAllJobsMode ? (companyApplicationsData?.items || []) : (applicationsData?.items || []);
+    const items = applicationsData?.items || [];
     return items.filter((candidate) => {
       const hitSearch = !search || (candidate.candidate_email || '').toLowerCase().includes(search.toLowerCase());
       const hitStatus = statusFilter === 'all' || candidate.status === statusFilter;
       return hitSearch && hitStatus;
     });
-  }, [isAllJobsMode, companyApplicationsData?.items, applicationsData?.items, search, statusFilter]);
+  }, [applicationsData?.items, search, statusFilter]);
 
   const columns = [
     {
@@ -98,6 +155,11 @@ function HRCandidatesPage() {
       dataIndex: 'status',
       key: 'status',
       render: (value) => <Tag color={statusTone[value] || 'default'} className="!rounded-full !px-3 !text-[26px]">{value}</Tag>,
+    },
+    {
+      title: 'Điểm AI',
+      key: 'ai_score',
+      render: (_, row) => (typeof row.ai_score === 'number' ? `${Math.round(row.ai_score)}/100` : 'Chưa chấm'),
     },
     {
       title: 'Ngày ứng tuyển',
@@ -149,7 +211,9 @@ function HRCandidatesPage() {
     },
   ];
 
-  const aiResultRows = aiResult?.items || [];
+  const aiResultRows = aiStatusData?.items || [];
+  const processedRows = aiResultRows.filter((row) => row.status === 'processed');
+  const totalPassed = processedRows.filter((row) => row.passed).length;
 
   const aiColumns = [
     {
@@ -165,22 +229,30 @@ function HRCandidatesPage() {
     {
       title: 'Điểm AI',
       key: 'score',
-      render: (_, row) => `${Math.round(row.score)}/100`,
+      render: (_, row) => (typeof row.score === 'number' ? `${Math.round(row.score)}/100` : '-'),
     },
     {
       title: 'Kết quả',
       key: 'passed',
-      render: (_, row) => (
-        <Tag color={row.passed ? 'green' : 'red'} className="!rounded-full !px-3">
-          {row.passed ? 'Đạt' : 'Không đạt'}
-        </Tag>
-      ),
+      render: (_, row) => {
+        if (row.status === 'queued') {
+          return <Tag color="blue" className="!rounded-full !px-3">Đang chờ</Tag>;
+        }
+        if (row.status === 'failed') {
+          return <Tag color="red" className="!rounded-full !px-3">Lỗi</Tag>;
+        }
+        return (
+          <Tag color={row.passed ? 'green' : 'red'} className="!rounded-full !px-3">
+            {row.passed ? 'Đạt' : 'Không đạt'}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Phân tích AI',
       dataIndex: 'reasoning',
       key: 'reasoning',
-      render: (value) => <Text className="!text-[14px]">{value || '-'}</Text>,
+      render: (value, row) => <Text className="!text-[14px]">{value || row.error || '-'}</Text>,
     },
     {
       title: 'Thao tác',
@@ -189,6 +261,7 @@ function HRCandidatesPage() {
         <Space>
           <Button
             icon={<MailOutlined />}
+            disabled={row.status !== 'processed'}
             loading={notifyScreeningResultMutation.isPending}
             onClick={async () => {
               try {
@@ -211,7 +284,7 @@ function HRCandidatesPage() {
           <Button
             icon={<CalendarOutlined />}
             type="primary"
-            disabled={!row.passed}
+            disabled={row.status !== 'processed' || !row.passed}
             onClick={() => {
               setInterviewTarget(row);
               setIsInterviewOpen(true);
@@ -272,10 +345,8 @@ function HRCandidatesPage() {
           onChange={setSelectedJobId}
           className="!min-w-[260px]"
           placeholder="Chọn job để xem ứng viên"
-          options={[
-            { value: 'all', label: 'Tất cả job' },
-            ...jobs.map((job) => ({ value: job.id, label: `${job.id} - ${job.title}` })),
-          ]}
+          disabled={!jobs.length}
+          options={jobs.map((job) => ({ value: job.id, label: `${job.id} - ${job.title}` }))}
         />
       </div>
 
@@ -283,7 +354,7 @@ function HRCandidatesPage() {
         columns={columns}
         dataSource={dataSource}
         rowKey="id"
-        loading={isAllJobsMode ? companyApplicationsLoading : applicationsLoading}
+        loading={applicationsLoading}
         pagination={false}
         className="panel-card"
       />
@@ -352,20 +423,24 @@ function HRCandidatesPage() {
           <Button
             type="primary"
             className="!bg-[#00011f]"
-            loading={rankCandidatesMutation.isPending}
+            loading={rankCandidatesAsyncSubmitMutation.isPending}
             onClick={async () => {
+              if (!jobs.length) {
+                message.error('Chưa có job phù hợp để lọc CV');
+                return;
+              }
               if (!aiJobId) {
                 message.error('Vui lòng chọn job để lọc');
                 return;
               }
               try {
-                const result = await rankCandidatesMutation.mutateAsync({
+                const result = await rankCandidatesAsyncSubmitMutation.mutateAsync({
                   jobId: aiJobId,
                   minScore: Number(aiThreshold) || 60,
                   notifyCandidates: false,
                 });
-                setAiResult(result);
-                message.success('AI lọc CV thành công');
+                setAiScoringJobId(result.scoring_job_id);
+                message.success('Đã gửi yêu cầu chấm điểm CV, hệ thống đang xử lý');
               } catch (error) {
                 message.error(error?.response?.data?.detail || 'Không thể lọc CV');
               }
@@ -375,13 +450,16 @@ function HRCandidatesPage() {
           </Button>
         </div>
 
-        {aiResult && (
+        {aiStatusData && (
           <div className="mt-5 panel-card p-4">
             <div className="mb-3 text-[15px] text-[#6b7289]">
-              Đã chấm {aiResult.total_scored} ứng viên, đạt {aiResult.total_passed} ứng viên (ngưỡng: {aiResult.min_score}).
+              Trạng thái: {aiStatusData.status}. Đã gửi {aiStatusData.submitted_items}/{aiStatusData.total_items} yêu cầu,
+              đã chấm {aiStatusData.processed_items} ứng viên, đạt {totalPassed} ứng viên, lỗi {aiStatusData.failed_items},
+              còn chờ {aiStatusData.pending_items} (ngưỡng: {aiStatusData.min_score}).
+              {aiStatusFetching ? ' Đang cập nhật...' : ''}
             </div>
             <Table
-              rowKey="application_id"
+              rowKey="request_id"
               columns={aiColumns}
               dataSource={aiResultRows}
               pagination={false}

@@ -131,7 +131,9 @@ class AuthService:
             .where(User.email == normalized_email, User.deleted_at.is_(None))
         )
 
-        if user_by_social is None and role is None:
+        # Ask for role only for a truly new account.
+        # If email already exists, link social account without asking role again.
+        if user_by_social is None and user_by_email is None and role is None:
             raise AppException(
                 "role is required for first social signup",
                 status_code=400,

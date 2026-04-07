@@ -26,6 +26,19 @@ export const cvService = {
         });
         return data;
     },
+    rankCandidatesAsyncSubmit: async ({ jobId, minScore, notifyCandidates, criteria }) => {
+        const { data } = await api.post("/ai/rank-candidates/async", {
+            job_id: jobId,
+            min_score: minScore,
+            notify_candidates: Boolean(notifyCandidates),
+            criteria,
+        });
+        return data;
+    },
+    rankCandidatesAsyncStatus: async (scoringJobId) => {
+        const { data } = await api.get(`/ai/rank-candidates/async/${scoringJobId}`);
+        return data;
+    },
     notifyScreeningResult: async ({ applicationId, minScore }) => {
         const { data } = await api.post("/ai/notify-screening-result", {
             application_id: applicationId,

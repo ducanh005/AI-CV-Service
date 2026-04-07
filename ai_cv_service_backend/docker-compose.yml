@@ -6,13 +6,19 @@ services:
     volumes:
       - ./:/app
     ports:
-      - "8000:8000"
+      - "8001:8000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/ai_cv_service
+      REDIS_URL: redis://redis:6379/0
     depends_on:
-      - db
-      - redis
-      - rabbitmq
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
 
   worker:
     build: .
@@ -22,10 +28,18 @@ services:
       - ./:/app
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/ai_cv_service
+      REDIS_URL: redis://redis:6379/0
     depends_on:
-      - api
-      - redis
-      - rabbitmq
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
 
   scoring_result_consumer:
     build: .
@@ -36,8 +50,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - rabbitmq
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
 
   scoring_ai:
     build: ../scoring_cv_ai
@@ -66,7 +82,8 @@ services:
       AISTUDIO_MODEL: ${AISTUDIO_MODEL}
       AISTUDIO_TIMEOUT_SECONDS: ${AISTUDIO_TIMEOUT_SECONDS}
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_started
 
   db:
     image: postgres:16
@@ -81,12 +98,22 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_cv_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
     container_name: ai_cv_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   rabbitmq:
     image: rabbitmq:3.13-management

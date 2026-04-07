@@ -107,11 +107,16 @@ CREATE INDEX IF NOT EXISTS idx_ai_scores_score ON ai_scores(score);
 
 CREATE TABLE IF NOT EXISTS interviews (
     id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL DEFAULT 'Interview',
     starts_at TIMESTAMPTZ NOT NULL,
     ends_at TIMESTAMPTZ NOT NULL,
-    calendar_event_id VARCHAR(255),
-    meeting_link VARCHAR(255),
+    interview_mode VARCHAR(20) NOT NULL DEFAULT 'online',
+    location VARCHAR(255),
     notes TEXT,
+    result_status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+    calendar_event_id VARCHAR(255),
+    calendar_url VARCHAR(500),
+    meeting_link VARCHAR(255),
     application_id INT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
     candidate_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     hr_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -130,3 +135,17 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
     expires_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_jti ON token_blacklist(jti);
+
+ALTER TABLE interviews
+ADD COLUMN IF NOT EXISTS title VARCHAR(255) NOT NULL DEFAULT 'Interview',
+ADD COLUMN IF NOT EXISTS interview_mode VARCHAR(20) NOT NULL DEFAULT 'online',
+ADD COLUMN IF NOT EXISTS location VARCHAR(255),
+ADD COLUMN IF NOT EXISTS result_status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+ADD COLUMN IF NOT EXISTS calendar_url VARCHAR(500);
+
+UPDATE interviews
+SET title = 'Interview'
+WHERE title IS NULL;
+
+CREATE INDEX IF NOT EXISTS ix_interviews_interview_mode ON interviews (interview_mode);
+CREATE INDEX IF NOT EXISTS ix_interviews_result_status ON interviews (result_status);

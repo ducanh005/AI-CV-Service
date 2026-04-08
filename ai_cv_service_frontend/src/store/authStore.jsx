@@ -5,7 +5,7 @@ import { tokenStorage } from '../utils/storage';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(tokenStorage.getUser());
+  const [user, setUser] = useState(tokenStorage.getSession()?.user ?? tokenStorage.getUser());
 
   const value = useMemo(
     () => ({

@@ -20,7 +20,7 @@ export function useSendGmailEmail() {
 }
 
 export function useCreateInterview() {
-    return useMutation({ mutationFn: interviewService.create });
+     return useMutation({ mutationFn: interviewService.create });
 }
 
 export function useCreateCalendarTestEvent() {

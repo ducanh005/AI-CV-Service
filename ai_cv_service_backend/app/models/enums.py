@@ -22,3 +22,13 @@ class ApplicationStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    
+class InterviewMode(str, Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+
+
+class InterviewResultStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    SUCCESS = "success"
+    FAILED = "failed"

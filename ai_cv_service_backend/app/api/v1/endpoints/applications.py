@@ -224,6 +224,7 @@ async def list_job_applications(
 async def list_company_applications(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None),
     current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
@@ -231,9 +232,9 @@ async def list_company_applications(
 
     if current_user.role.name == UserRole.HR.value:
         await _ensure_hr_company_context(current_user, db)
-        applications, total = await service.list_for_company(current_user.company_id, page, page_size)
+        applications, total = await service.list_for_company(current_user.company_id, page, page_size, status=status)
     else:
-        applications, total = await service.list_all(page, page_size)
+        applications, total = await service.list_all(page, page_size, status=status)
 
     return {
         "items": [ApplicationResponse.model_validate(_serialize_application(a)).model_dump() for a in applications],

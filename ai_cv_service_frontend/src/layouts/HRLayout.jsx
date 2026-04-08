@@ -5,6 +5,7 @@ import {
   UserOutlined,
   ApiOutlined,
   LogoutOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { Avatar, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -22,6 +23,7 @@ const menuItems = [
   { key: '/hr/staff', icon: <UserOutlined />, label: 'Nhân viên' },
   { key: '/hr/integrations', icon: <ApiOutlined />, label: 'Tích hợp' },
   { key: '/hr/profile', icon: <UserOutlined />, label: 'Hồ sơ' },
+  { key: "/hr/interviews", icon: <CalendarOutlined />, label: "Lịch phỏng vấn" },
 ];
 
 function HRLayout() {

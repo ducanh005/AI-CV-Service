@@ -1,5 +1,5 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Alert, Button, Divider, Form, Input, Typography, message } from 'antd';
+import { ArrowRightOutlined, GoogleOutlined, LinkedinOutlined } from '@ant-design/icons';
+import { Alert, Button, Divider, Form, Input, Select, Typography, message } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,6 +17,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const loginMutation = useLogin();
   const [socialLoadingProvider, setSocialLoadingProvider] = useState('');
+  const [socialRole, setSocialRole] = useState('user');
 
   const socialEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED !== 'false';
 
@@ -40,7 +41,7 @@ function LoginPage() {
   const onSocialAuthStart = async (provider, mode) => {
     setSocialLoadingProvider(provider);
     try {
-      const result = await authService.oauthAuthorize(provider, mode, buildSocialState(mode));
+      const result = await authService.oauthAuthorize(provider, mode, buildSocialState(mode, socialRole));
       if (!result?.auth_url) {
         throw new Error('Không nhận được URL xác thực social');
       }
@@ -100,12 +101,25 @@ function LoginPage() {
         {socialEnabled && (
           <>
             <Divider className="!my-6 !text-[16px] !text-[#6b7289]">Hoặc tiếp tục với</Divider>
+            <div className="mb-3">
+              <Text className="!mb-1 !block !text-[14px] !text-[#6b7289]">Chọn vai trò trước khi đăng nhập social</Text>
+              <Select
+                value={socialRole}
+                onChange={setSocialRole}
+                className="!w-full"
+                options={[
+                  { value: 'user', label: 'Ứng viên' },
+                  { value: 'hr', label: 'HR' },
+                ]}
+              />
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Button
                 block
                 onClick={() => onSocialAuthStart('google', 'login')}
                 loading={socialLoadingProvider === 'google'}
                 className="!h-[48px] !rounded-[12px]"
+                icon={<GoogleOutlined style={{ color: '#DB4437' }} />}
               >
                 Google (Gmail)
               </Button>
@@ -114,6 +128,7 @@ function LoginPage() {
                 onClick={() => onSocialAuthStart('linkedin', 'login')}
                 loading={socialLoadingProvider === 'linkedin'}
                 className="!h-[48px] !rounded-[12px]"
+                icon={<LinkedinOutlined style={{ color: '#0A66C2' }} />}
               >
                 LinkedIn
               </Button>

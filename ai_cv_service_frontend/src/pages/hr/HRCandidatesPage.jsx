@@ -12,8 +12,10 @@ import {
   Form,
   Input,
   Modal,
+  Progress,
   Select,
   Space,
+  Spin,
   Table,
   Tag,
   Typography,
@@ -122,8 +124,9 @@ function HRCandidatesPage() {
       return;
     }
 
-    const isDone = ['completed', 'partial_failed', 'failed'].includes(aiStatusData.status);
-    if (!isDone) {
+    const isDoneStatus = ['completed', 'partial_failed', 'failed'].includes(aiStatusData.status);
+    const isFullyDone = isDoneStatus && (aiStatusData.processed_items + aiStatusData.failed_items >= aiStatusData.total_items);
+    if (!isFullyDone) {
       return;
     }
 
@@ -133,7 +136,15 @@ function HRCandidatesPage() {
 
     setLastFinishedScoringJobId(aiStatusData.scoring_job_id);
     queryClient.invalidateQueries({ queryKey: ['applications'] });
+    message.success('AI đã chấm xong toàn bộ CV cho đợt lọc này');
   }, [aiStatusData, lastFinishedScoringJobId, queryClient]);
+
+  const aiIsDoneStatus = ['completed', 'partial_failed', 'failed'].includes(aiStatusData?.status || '');
+  const aiIsFullyDone =
+    Boolean(aiStatusData)
+    && aiIsDoneStatus
+    && ((aiStatusData.processed_items + aiStatusData.failed_items) >= aiStatusData.total_items);
+  const aiIsScoring = Boolean(aiScoringJobId) && !aiIsFullyDone;
 
   const dataSource = useMemo(() => {
     const items = applicationsData?.items || [];
@@ -597,7 +608,8 @@ function HRCandidatesPage() {
           <Button
             type="primary"
             className="!bg-[#00011f]"
-            loading={rankCandidatesAsyncSubmitMutation.isPending}
+            loading={rankCandidatesAsyncSubmitMutation.isPending || aiIsScoring}
+            disabled={aiIsScoring}
             onClick={async () => {
               if (!jobs.length) {
                 message.error('Chưa có job phù hợp để lọc CV');
@@ -620,11 +632,37 @@ function HRCandidatesPage() {
               }
             }}
           >
-            Lọc CV bằng AI
+            {aiIsScoring ? 'AI đang chấm CV...' : 'Lọc CV bằng AI'}
           </Button>
         </div>
 
-        {aiStatusData && (
+        {aiIsScoring && (
+          <div className="mt-5 panel-card p-4">
+            <div className="mb-3 text-[15px] text-[#6b7289]">
+              AI đang chấm CV, vui lòng chờ. Kết quả sẽ tự hiển thị sau khi chấm xong.
+            </div>
+            <div className="mb-3">
+              <Progress
+                percent={
+                  aiStatusData?.total_items
+                    ? Math.round(((aiStatusData.processed_items + aiStatusData.failed_items) / aiStatusData.total_items) * 100)
+                    : 0
+                }
+                status="active"
+                strokeColor="#1d4ed8"
+              />
+            </div>
+            <div className="mb-3 text-[15px] text-[#6b7289]">
+              Trạng thái: {aiStatusData?.status || 'queued'}. Đã gửi {aiStatusData?.submitted_items || 0}/{aiStatusData?.total_items || 0} yêu cầu,
+              đã chấm {aiStatusData?.processed_items || 0} ứng viên, lỗi {aiStatusData?.failed_items || 0},
+              còn chờ {aiStatusData?.pending_items ?? (aiStatusData?.total_items || 0)}.
+              {aiStatusFetching ? ' Đang cập nhật...' : ''}
+            </div>
+            <Spin size="large" />
+          </div>
+        )}
+
+        {aiStatusData && aiIsFullyDone && (
           <div className="mt-5 panel-card p-4">
             <div className="mb-3 text-[15px] text-[#6b7289]">
               Trạng thái: {aiStatusData.status}. Đã gửi {aiStatusData.submitted_items}/{aiStatusData.total_items} yêu cầu,

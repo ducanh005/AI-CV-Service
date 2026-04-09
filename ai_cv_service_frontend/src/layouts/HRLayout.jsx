@@ -6,6 +6,8 @@ import {
   ApiOutlined,
   LogoutOutlined,
   CalendarOutlined,
+  ScheduleOutlined,
+  CarryOutOutlined,
 } from '@ant-design/icons';
 import { Avatar, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -20,7 +22,10 @@ const menuItems = [
   { key: '/hr/dashboard', icon: <AppstoreOutlined />, label: 'Bảng điều khiển' },
   { key: '/hr/candidates', icon: <SolutionOutlined />, label: 'Ứng viên' },
   { key: '/hr/jobs', icon: <TeamOutlined />, label: 'Tin tuyển dụng' },
-  { key: '/hr/staff', icon: <UserOutlined />, label: 'Nhân viên' },
+  { key: '/hr/staff', icon: <TeamOutlined />, label: 'Nhân sự' },
+  { key: '/hr/onboarding', icon: <SolutionOutlined />, label: 'Onboarding' },
+  { key: '/hr/attendance', icon: <ScheduleOutlined />, label: 'Chấm công' },
+  { key: '/hr/leave', icon: <CarryOutOutlined />, label: 'Nghỉ phép' },
   { key: '/hr/integrations', icon: <ApiOutlined />, label: 'Tích hợp' },
   { key: '/hr/profile', icon: <UserOutlined />, label: 'Hồ sơ' },
   { key: "/hr/interviews", icon: <CalendarOutlined />, label: "Lịch phỏng vấn" },

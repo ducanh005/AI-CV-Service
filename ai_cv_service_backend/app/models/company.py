@@ -16,3 +16,9 @@ class Company(TimestampMixin, SoftDeleteMixin, Base):
 
     hr_users = relationship("User", back_populates="company")
     jobs = relationship("Job", back_populates="company")
+    departments = relationship("Department", back_populates="company")
+    employees = relationship("Employee", back_populates="company")
+    onboarding_templates = relationship("OnboardingTemplate", back_populates="company")
+    onboarding_assignments = relationship("OnboardingAssignment", back_populates="company")
+    attendances = relationship("Attendance", back_populates="company")
+    leave_requests = relationship("LeaveRequest", back_populates="company")

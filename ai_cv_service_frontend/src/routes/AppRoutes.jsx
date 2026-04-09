@@ -16,6 +16,9 @@ import HRDashboardPage from '../pages/hr/HRDashboardPage';
 import HRCandidatesPage from '../pages/hr/HRCandidatesPage';
 import HRJobsPage from '../pages/hr/HRJobsPage';
 import HRStaffPage from '../pages/hr/HRStaffPage';
+import HROnboardingPage from '../pages/hr/HROnboardingPage';
+import HRAttendancePage from '../pages/hr/HRAttendancePage';
+import HRLeavePage from '../pages/hr/HRLeavePage';
 import HRIntegrationsPage from '../pages/hr/HRIntegrationsPage';
 import HRProfilePage from '../pages/hr/HRProfilePage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -61,6 +64,9 @@ function AppRoutesContent() {
           <Route path="candidates" element={<HRCandidatesPage />} />
           <Route path="jobs" element={<HRJobsPage />} />
           <Route path="staff" element={<HRStaffPage />} />
+          <Route path="onboarding" element={<HROnboardingPage />} />
+          <Route path="attendance" element={<HRAttendancePage />} />
+          <Route path="leave" element={<HRLeavePage />} />
           <Route path="integrations" element={<HRIntegrationsPage />} />
           <Route path="profile" element={<HRProfilePage />} />
         </Route>

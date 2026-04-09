@@ -40,3 +40,4 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
     )
     interviews_as_candidate = relationship("Interview", back_populates="candidate", foreign_keys="Interview.candidate_id")
     interviews_as_hr = relationship("Interview", back_populates="hr", foreign_keys="Interview.hr_id")
+    employee = relationship("Employee", back_populates="user", uselist=False)

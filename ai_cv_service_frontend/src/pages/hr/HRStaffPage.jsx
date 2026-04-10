@@ -1,731 +1,639 @@
 import {
+  ApartmentOutlined,
+  ArrowLeftOutlined,
+  DeleteOutlined,
   EditOutlined,
-  HistoryOutlined,
+  MailOutlined,
+  PhoneOutlined,
   PlusOutlined,
   SearchOutlined,
-  StopOutlined,
-  SyncOutlined,
-  UploadOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
+  Avatar,
+  Badge,
   Button,
   Card,
   Col,
   DatePicker,
+  Empty,
   Form,
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Row,
   Select,
-  Space,
-  Statistic,
-  Table,
+  Spin,
   Tag,
   Typography,
-  Upload,
   message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  useContractHistory,
-  useContracts,
-  useContractTargets,
-  useCreateContract,
-  useRenewContract,
-  useTerminateContract,
-  useUpdateContract,
-  useUploadContractDocument,
-} from '../../hooks/useContracts';
-import { useAuthStore } from '../../store/authStore';
+import { departmentService } from '../../services/departmentService';
+import { employeeService } from '../../services/employeeService';
+import { resolveAvatarUrl } from '../../utils/media';
 
 const { Title, Text } = Typography;
+const { TextArea } = Input;
 
-const CONTRACT_TYPE_OPTIONS = [
-  { value: 'full_time', label: 'Toàn thời gian' },
-  { value: 'part_time', label: 'Bán thời gian' },
-];
-
-const CONTRACT_STATUS_OPTIONS = [
-  { value: 'active', label: 'Đang hiệu lực' },
-  { value: 'expired', label: 'Hết hạn' },
-  { value: 'terminated', label: 'Đã chấm dứt' },
-];
-
-const DOCUMENT_TYPE_OPTIONS = [
-  { value: 'contract', label: 'Hợp đồng chính' },
-  { value: 'appendix', label: 'Phụ lục' },
-  { value: 'decision', label: 'Quyết định' },
-  { value: 'other', label: 'Khác' },
-];
-
-const STATUS_COLOR = {
-  active: 'green',
-  expired: 'orange',
-  terminated: 'red',
+const STATUS_MAP = {
+  active: { color: 'green', label: 'Đang làm' },
+  resigned: { color: 'red', label: 'Nghỉ việc' },
+  on_leave: { color: 'orange', label: 'Tạm nghỉ' },
 };
 
-const STATUS_LABEL = Object.fromEntries(CONTRACT_STATUS_OPTIONS.map((item) => [item.value, item.label]));
-const TYPE_LABEL = Object.fromEntries(CONTRACT_TYPE_OPTIONS.map((item) => [item.value, item.label]));
+const CONTRACT_MAP = {
+  probation: 'Thử việc',
+  permanent: 'Chính thức',
+  temporary: 'Thời vụ',
+};
 
-function formatDate(value) {
-  if (!value) {
-    return '-';
-  }
-  return new Date(value).toLocaleDateString('vi-VN');
-}
-
-function formatMoney(value, currency = 'VND') {
-  if (typeof value !== 'number') {
-    return '-';
-  }
-  return `${value.toLocaleString('vi-VN')} ${currency}`;
-}
+const DEPT_COLORS = [
+  'from-blue-500 to-blue-600',
+  'from-emerald-500 to-emerald-600',
+  'from-violet-500 to-violet-600',
+  'from-amber-500 to-amber-600',
+  'from-rose-500 to-rose-600',
+  'from-cyan-500 to-cyan-600',
+  'from-indigo-500 to-indigo-600',
+  'from-teal-500 to-teal-600',
+];
 
 function HRStaffPage() {
-  const { user } = useAuthStore();
-  const [form] = Form.useForm();
-  const [renewForm] = Form.useForm();
-  const [terminateForm] = Form.useForm();
-  const [uploadForm] = Form.useForm();
-
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedDept, setSelectedDept] = useState(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [filterStatus, setFilterStatus] = useState(null);
 
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingContract, setEditingContract] = useState(null);
+  // Employee modals
+  const [empModalOpen, setEmpModalOpen] = useState(false);
+  const [editingEmp, setEditingEmp] = useState(null);
+  const [detailModal, setDetailModal] = useState(null);
+  const [empForm] = Form.useForm();
 
-  const [renewingContract, setRenewingContract] = useState(null);
-  const [terminatingContract, setTerminatingContract] = useState(null);
-  const [historyContract, setHistoryContract] = useState(null);
-  const [uploadContract, setUploadContract] = useState(null);
-  const [uploadFile, setUploadFile] = useState(null);
+  // Department modals
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState(null);
+  const [deptForm] = Form.useForm();
 
-  const companyId = user?.role === 'admin' ? user?.company_id : undefined;
-
-  const queryParams = useMemo(() => {
-    const params = {
-      page: 1,
-      page_size: 100,
-      current_only: true,
-      expiring_threshold_days: 30,
-    };
-
-    if (search) {
-      params.q = search;
-    }
-    if (statusFilter !== 'all') {
-      params.status = statusFilter;
-    }
-    if (typeFilter !== 'all') {
-      params.contract_type = typeFilter;
-    }
-    if (companyId) {
-      params.company_id = companyId;
-    }
-    return params;
-  }, [search, statusFilter, typeFilter, companyId]);
-
-  const statsQueryParams = useMemo(() => {
-    const params = {
-      page: 1,
-      page_size: 100,
-      current_only: true,
-      expiring_threshold_days: 30,
-    };
-
-    if (companyId) {
-      params.company_id = companyId;
-    }
-    return params;
-  }, [companyId]);
-
-  const { data: targetsData } = useContractTargets({ companyId }, true);
-  const { data: contractsData, isLoading: contractsLoading, refetch } = useContracts(queryParams, true);
-  const { data: statsContractsData } = useContracts(statsQueryParams, true);
-  const { data: historyData, isLoading: historyLoading } = useContractHistory(
-    historyContract?.id,
-    { companyId },
-    Boolean(historyContract?.id)
-  );
-
-  const createContractMutation = useCreateContract();
-  const updateContractMutation = useUpdateContract();
-  const renewContractMutation = useRenewContract();
-  const terminateContractMutation = useTerminateContract();
-  const uploadDocumentMutation = useUploadContractDocument();
-
-  const targets = targetsData || [];
-  const contracts = contractsData?.items || [];
-  const statsContracts = statsContractsData?.items || [];
-
-  const stats = useMemo(() => {
-    const active = statsContracts.filter((item) => item.status === 'active').length;
-    const expiringSoon = statsContracts.filter((item) => item.expiring_soon).length;
-    const expired = statsContracts.filter((item) => item.status === 'expired').length;
-    const terminated = statsContracts.filter((item) => item.status === 'terminated').length;
-    return { active, expiringSoon, expired, terminated };
-  }, [statsContracts]);
-
-  const targetOptions = useMemo(
-    () =>
-      targets.map((item) => ({
-        value: item.source_application_id,
-        label: `${item.full_name} (${item.email}) - Đã accept: ${item.accepted_job_title}`,
-      })),
-    [targets]
-  );
-
-  const openCreateModal = () => {
-    setEditingContract(null);
-    form.resetFields();
-    form.setFieldsValue({
-      contract_type: 'full_time',
-      salary_currency: 'VND',
-    });
-    setIsEditorOpen(true);
-  };
-
-  const openEditModal = (contract) => {
-    setEditingContract(contract);
-    form.resetFields();
-    form.setFieldsValue({
-      source_application_id: contract.source_application_id,
-      contract_type: contract.contract_type,
-      start_date: contract.start_date ? dayjs(contract.start_date) : null,
-      end_date: contract.end_date ? dayjs(contract.end_date) : null,
-      salary_amount: contract.salary_amount,
-      salary_currency: contract.salary_currency,
-      benefits: contract.benefits,
-      terms: contract.terms,
-      notes: contract.notes,
-    });
-    setIsEditorOpen(true);
-  };
-
-  const submitEditorForm = async (values) => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      if (!editingContract) {
-        const payload = {
-          source_application_id: values.source_application_id,
-          contract_type: values.contract_type,
-          start_date: values.start_date.format('YYYY-MM-DD'),
-          end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
-          salary_amount: values.salary_amount ?? null,
-          salary_currency: values.salary_currency || 'VND',
-          benefits: values.benefits || null,
-          terms: values.terms || null,
-          notes: values.notes || null,
-        };
-        await createContractMutation.mutateAsync({ payload, companyId });
-        message.success('Đã tạo hợp đồng mới');
+      const [empData, deptData] = await Promise.all([
+        employeeService.list(),
+        departmentService.list(),
+      ]);
+      setEmployees(empData);
+      setDepartments(deptData);
+    } catch {
+      message.error('Không thể tải dữ liệu');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const deptOptions = useMemo(
+    () => departments.map((d) => ({ value: d.id, label: d.name })),
+    [departments],
+  );
+
+  // Employees filtered for the selected department
+  const deptEmployees = useMemo(() => {
+    if (!selectedDept) return [];
+    return employees.filter((emp) => {
+      const hitDept = emp.department_id === selectedDept.id;
+      const hitSearch =
+        !search ||
+        emp.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        emp.email?.toLowerCase().includes(search.toLowerCase()) ||
+        emp.employee_code?.toLowerCase().includes(search.toLowerCase());
+      const hitStatus = !filterStatus || emp.status === filterStatus;
+      return hitDept && hitSearch && hitStatus;
+    });
+  }, [employees, selectedDept, search, filterStatus]);
+
+  // Stats for overview
+  const totalEmployees = employees.length;
+  const activeCount = employees.filter((e) => e.status === 'active').length;
+  const onLeaveCount = employees.filter((e) => e.status === 'on_leave').length;
+
+  // ---- Employee handlers ----
+  const openCreateEmp = () => {
+    setEditingEmp(null);
+    empForm.resetFields();
+    if (selectedDept) {
+      empForm.setFieldsValue({ department_id: selectedDept.id });
+    }
+    setEmpModalOpen(true);
+  };
+
+  const openEditEmp = (emp) => {
+    setEditingEmp(emp);
+    empForm.setFieldsValue({
+      user_id: emp.user_id,
+      department_id: emp.department_id,
+      employee_code: emp.employee_code,
+      position: emp.position,
+      contract_type: emp.contract_type,
+      status: emp.status,
+      start_date: emp.start_date ? dayjs(emp.start_date) : null,
+      end_date: emp.end_date ? dayjs(emp.end_date) : null,
+      identity_number: emp.identity_number,
+      notes: emp.notes,
+    });
+    setEmpModalOpen(true);
+  };
+
+  const handleEmpSubmit = async () => {
+    try {
+      const values = await empForm.validateFields();
+      const payload = {
+        ...values,
+        start_date: values.start_date?.format('YYYY-MM-DD'),
+        end_date: values.end_date?.format('YYYY-MM-DD') || null,
+      };
+      if (editingEmp) {
+        const { user_id, employee_code, ...updatePayload } = payload;
+        await employeeService.update(editingEmp.id, updatePayload);
+        message.success('Cập nhật nhân viên thành công');
       } else {
-        const payload = {
-          contract_type: values.contract_type,
-          start_date: values.start_date.format('YYYY-MM-DD'),
-          end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
-          salary_amount: values.salary_amount ?? null,
-          salary_currency: values.salary_currency || 'VND',
-          benefits: values.benefits || null,
-          terms: values.terms || null,
-          notes: values.notes || null,
-        };
-        await updateContractMutation.mutateAsync({
-          id: editingContract.id,
-          payload,
-          companyId,
-        });
-        message.success('Đã cập nhật hợp đồng');
+        await employeeService.create(payload);
+        message.success('Thêm nhân viên thành công');
       }
-
-      setIsEditorOpen(false);
-      setEditingContract(null);
-      form.resetFields();
-    } catch (error) {
-      message.error(error?.response?.data?.detail || 'Không thể lưu hợp đồng');
+      setEmpModalOpen(false);
+      fetchData();
+    } catch (err) {
+      if (err.response?.data?.detail) {
+        message.error(err.response.data.detail);
+      }
     }
   };
 
-  const submitRenew = async (values) => {
-    if (!renewingContract) {
-      return;
-    }
+  const handleDeleteEmp = async (id) => {
     try {
-      await renewContractMutation.mutateAsync({
-        id: renewingContract.id,
-        companyId,
-        payload: {
-          start_date: values.start_date.format('YYYY-MM-DD'),
-          end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
-          title: values.title || null,
-          contract_type: values.contract_type || null,
-          salary_amount: values.salary_amount ?? null,
-          salary_currency: values.salary_currency || null,
-          benefits: values.benefits || null,
-          terms: values.terms || null,
-          notes: values.notes || null,
-          reason: values.reason || 'Gia hạn hợp đồng',
-        },
-      });
-      message.success('Đã tạo phiên bản gia hạn');
-      setRenewingContract(null);
-      renewForm.resetFields();
-    } catch (error) {
-      message.error(error?.response?.data?.detail || 'Không thể gia hạn hợp đồng');
+      await employeeService.delete(id);
+      message.success('Xóa nhân viên thành công');
+      fetchData();
+    } catch (err) {
+      message.error(err.response?.data?.detail || 'Không thể xóa');
     }
   };
 
-  const submitTerminate = async (values) => {
-    if (!terminatingContract) {
-      return;
-    }
+  // ---- Department handlers ----
+  const openCreateDept = () => {
+    setEditingDept(null);
+    deptForm.resetFields();
+    setDeptModalOpen(true);
+  };
+
+  const openEditDept = (dept, e) => {
+    e?.stopPropagation();
+    setEditingDept(dept);
+    deptForm.setFieldsValue({ name: dept.name, description: dept.description });
+    setDeptModalOpen(true);
+  };
+
+  const handleDeptSubmit = async () => {
     try {
-      await terminateContractMutation.mutateAsync({
-        id: terminatingContract.id,
-        companyId,
-        payload: {
-          reason: values.reason,
-          terminated_at: values.terminated_at ? values.terminated_at.toISOString() : null,
-        },
-      });
-      message.success('Đã chấm dứt hợp đồng');
-      setTerminatingContract(null);
-      terminateForm.resetFields();
-    } catch (error) {
-      message.error(error?.response?.data?.detail || 'Không thể chấm dứt hợp đồng');
+      const values = await deptForm.validateFields();
+      if (editingDept) {
+        await departmentService.update(editingDept.id, values);
+        message.success('Cập nhật phòng ban thành công');
+      } else {
+        await departmentService.create(values);
+        message.success('Tạo phòng ban thành công');
+      }
+      setDeptModalOpen(false);
+      fetchData();
+    } catch (err) {
+      if (err.response?.data?.detail) {
+        message.error(err.response.data.detail);
+      }
     }
   };
 
-  const submitUpload = async (values) => {
-    if (!uploadContract || !uploadFile) {
-      message.error('Vui lòng chọn file trước khi tải lên');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', uploadFile);
-    formData.append('document_type', values.document_type);
-    if (values.notes) {
-      formData.append('notes', values.notes);
-    }
-
+  const handleDeleteDept = async (id, e) => {
+    e?.stopPropagation();
     try {
-      await uploadDocumentMutation.mutateAsync({
-        id: uploadContract.id,
-        formData,
-        companyId,
-      });
-      message.success('Đã tải tài liệu hợp đồng');
-      setUploadContract(null);
-      setUploadFile(null);
-      uploadForm.resetFields();
-    } catch (error) {
-      message.error(error?.response?.data?.detail || 'Không thể tải tài liệu hợp đồng');
+      await departmentService.delete(id);
+      message.success('Xóa phòng ban thành công');
+      if (selectedDept?.id === id) setSelectedDept(null);
+      fetchData();
+    } catch (err) {
+      message.error(err.response?.data?.detail || 'Không thể xóa phòng ban');
     }
   };
 
-  const columns = [
-    {
-      title: 'Mã hợp đồng',
-      dataIndex: 'contract_code',
-      key: 'contract_code',
-      render: (value, row) => (
-        <div>
-          <div className="text-[18px] font-semibold">{value}</div>
-          <div className="text-[14px] text-[#6b7289]">v{row.version} - {row.title}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Nhân sự',
-      key: 'employee',
-      render: (_, row) => (
-        <div>
-          <div className="text-[18px] font-semibold">{row.employee_name}</div>
-          <div className="text-[14px] text-[#6b7289]">{row.employee_email}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Loại',
-      dataIndex: 'contract_type',
-      key: 'contract_type',
-      render: (value) => <Tag>{TYPE_LABEL[value] || value}</Tag>,
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (value, row) => (
-        <Space direction="vertical" size={4}>
-          <Tag color={STATUS_COLOR[value] || 'default'}>{STATUS_LABEL[value] || value}</Tag>
-          {row.expiring_soon && <Tag color="orange">Sắp hết hạn ({row.days_to_expiry} ngày)</Tag>}
-        </Space>
-      ),
-    },
-    {
-      title: 'Hiệu lực',
-      key: 'period',
-      render: (_, row) => (
-        <div>
-          <div>{formatDate(row.start_date)} - {formatDate(row.end_date)}</div>
-          <div className="text-[14px] text-[#6b7289]">Ký: {formatDate(row.signed_at)}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Lương',
-      key: 'salary',
-      render: (_, row) => formatMoney(row.salary_amount, row.salary_currency),
-    },
-    {
-      title: 'Tài liệu',
-      key: 'docs',
-      render: (_, row) => `${row.documents?.length || 0} file`,
-    },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, row) => (
-        <Space wrap>
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(row)}>
-            Sửa
-          </Button>
-          <Button
-            size="small"
-            icon={<SyncOutlined />}
-            onClick={() => {
-              setRenewingContract(row);
-              renewForm.resetFields();
-              renewForm.setFieldsValue({
-                contract_type: row.contract_type,
-                salary_amount: row.salary_amount,
-                salary_currency: row.salary_currency,
-              });
-            }}
-          >
-            Gia hạn
-          </Button>
-          {row.status !== 'terminated' && (
-            <Button
-              size="small"
-              danger
-              icon={<StopOutlined />}
-              onClick={() => {
-                setTerminatingContract(row);
-                terminateForm.resetFields();
-              }}
-            >
-              Chấm dứt
-            </Button>
-          )}
-          <Button
-            size="small"
-            icon={<UploadOutlined />}
-            onClick={() => {
-              setUploadContract(row);
-              setUploadFile(null);
-              uploadForm.resetFields();
-            }}
-          >
-            Tài liệu
-          </Button>
-          <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryContract(row)}>
-            Lịch sử
-          </Button>
-        </Space>
-      ),
-    },
-  ];
-
-  const historyColumns = [
-    {
-      title: 'Thời điểm',
-      dataIndex: 'changed_at',
-      key: 'changed_at',
-      render: (value) => formatDate(value),
-    },
-    {
-      title: 'Chuyển trạng thái',
-      key: 'transition',
-      render: (_, row) => `${row.from_status || 'none'} -> ${row.to_status}`,
-    },
-    {
-      title: 'Ghi chú',
-      dataIndex: 'note',
-      key: 'note',
-      render: (value) => value || '-',
-    },
-  ];
-
-  return (
+  // ---- RENDER: Department list (overview) ----
+  const renderDepartmentView = () => (
     <div>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <Title level={2} className="!mb-1 !text-[52px]">Quản lý hợp đồng nhân sự</Title>
-          <Text className="!text-[30px] !text-[#6b7289]">Theo dõi vòng đời hợp đồng của nhân viên và ứng viên đã hired</Text>
+          <Title level={2} className="!mb-1 !text-[52px]">Nhân sự</Title>
+          <Text className="!text-[30px] !text-[#6b7289]">Quản lý nhân viên theo phòng ban</Text>
         </div>
-        <Space>
-          <Button icon={<SyncOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>Thêm hợp đồng</Button>
-        </Space>
+        <div className="flex gap-2">
+          <Button icon={<PlusOutlined />} onClick={openCreateDept}>Thêm phòng ban</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateEmp}>Thêm nhân viên</Button>
+        </div>
       </div>
 
-      <Row gutter={[16, 16]} className="mb-4">
-        <Col xs={24} md={12} xl={6}>
-          <Card className="panel-card"><Statistic title="Đang hiệu lực" value={stats.active} /></Card>
+      {/* Stats */}
+      <Row gutter={16} className="mt-5">
+        <Col xs={24} md={8}>
+          <Card className="panel-card">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100">
+                <ApartmentOutlined className="text-lg text-blue-600" />
+              </div>
+              <div>
+                <p className="m-0 text-sm text-gray-500">Phòng ban</p>
+                <p className="m-0 text-2xl font-bold">{departments.length}</p>
+              </div>
+            </div>
+          </Card>
         </Col>
-        <Col xs={24} md={12} xl={6}>
-          <Card className="panel-card"><Statistic title="Sắp hết hạn (< 30 ngày)" value={stats.expiringSoon} /></Card>
+        <Col xs={24} md={8}>
+          <Card className="panel-card">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-green-100">
+                <TeamOutlined className="text-lg text-green-600" />
+              </div>
+              <div>
+                <p className="m-0 text-sm text-gray-500">Tổng nhân viên</p>
+                <p className="m-0 text-2xl font-bold">{totalEmployees} <span className="text-sm font-normal text-green-600">({activeCount} đang làm)</span></p>
+              </div>
+            </div>
+          </Card>
         </Col>
-        <Col xs={24} md={12} xl={6}>
-          <Card className="panel-card"><Statistic title="Hợp đồng hết hạn" value={stats.expired} /></Card>
-        </Col>
-        <Col xs={24} md={12} xl={6}>
-          <Card className="panel-card"><Statistic title="Đã chấm dứt" value={stats.terminated} /></Card>
+        <Col xs={24} md={8}>
+          <Card className="panel-card">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-100">
+                <UserOutlined className="text-lg text-orange-600" />
+              </div>
+              <div>
+                <p className="m-0 text-sm text-gray-500">Tạm nghỉ</p>
+                <p className="m-0 text-2xl font-bold">{onLeaveCount}</p>
+              </div>
+            </div>
+          </Card>
         </Col>
       </Row>
 
-      <div className="mt-4 flex gap-3">
-        <Input
-          className="search-input"
-          prefix={<SearchOutlined />}
-          placeholder="Tìm mã hợp đồng, tên nhân sự, email..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <Select
-          className="!min-w-[220px]"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[{ value: 'all', label: 'Tất cả trạng thái' }, ...CONTRACT_STATUS_OPTIONS]}
-        />
-        <Select
-          className="!min-w-[220px]"
-          value={typeFilter}
-          onChange={setTypeFilter}
-          options={[{ value: 'all', label: 'Tất cả loại hợp đồng' }, ...CONTRACT_TYPE_OPTIONS]}
-        />
-      </div>
-
-      <div className="mt-4">
-        <Table
-          className="panel-card"
-          columns={columns}
-          dataSource={contracts}
-          loading={contractsLoading}
-          rowKey="id"
-          pagination={false}
-        />
-      </div>
-
-      <Modal
-        open={isEditorOpen}
-        onCancel={() => {
-          setIsEditorOpen(false);
-          setEditingContract(null);
-        }}
-        onOk={() => form.submit()}
-        confirmLoading={createContractMutation.isPending || updateContractMutation.isPending}
-        title={editingContract ? 'Cập nhật hợp đồng' : 'Thêm hợp đồng mới'}
-        width={900}
-      >
-        <Form form={form} layout="vertical" onFinish={submitEditorForm}>
-          <Row gutter={16}>
-            <Col span={24}>
-              {!editingContract ? (
-                <Form.Item
-                  label="Ứng viên đã accept"
-                  name="source_application_id"
-                  rules={[{ required: true, message: 'Vui lòng chọn ứng viên đã accept' }]}
+      {/* Department cards */}
+      <Title level={4} className="!mt-6 !mb-3">Chọn phòng ban để xem nhân viên</Title>
+      {departments.length === 0 && !loading ? (
+        <Empty description="Chưa có phòng ban nào" className="mt-8" />
+      ) : (
+        <Row gutter={[16, 16]}>
+          {departments.map((dept, idx) => {
+            const colorClass = DEPT_COLORS[idx % DEPT_COLORS.length];
+            return (
+              <Col xs={24} sm={12} lg={8} xl={6} key={dept.id}>
+                <Card
+                  className="panel-card !h-full cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1"
+                  onClick={() => { setSelectedDept(dept); setSearch(''); setFilterStatus(null); }}
                 >
-                  <Select showSearch optionFilterProp="label" options={targetOptions} />
-                </Form.Item>
-              ) : (
-                <Form.Item label="Tiêu đề hợp đồng (tự động)">
-                  <Input value={editingContract.title} disabled readOnly />
-                </Form.Item>
-              )}
-            </Col>
-          </Row>
+                  <div className="flex items-start justify-between">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${colorClass}`}>
+                      <ApartmentOutlined className="text-xl text-white" />
+                    </div>
+                    <div className="flex gap-0.5">
+                      <Button type="text" size="small" icon={<SettingOutlined />} onClick={(e) => openEditDept(dept, e)} />
+                      <Popconfirm
+                        title="Xóa phòng ban?"
+                        description="Chỉ xóa được khi không còn nhân viên"
+                        onConfirm={(e) => handleDeleteDept(dept.id, e)}
+                        onCancel={(e) => e?.stopPropagation()}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                      >
+                        <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
+                      </Popconfirm>
+                    </div>
+                  </div>
 
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item label="Loại hợp đồng" name="contract_type" rules={[{ required: true, message: 'Vui lòng chọn loại hợp đồng' }]}>
-                <Select options={CONTRACT_TYPE_OPTIONS} />
-              </Form.Item>
-            </Col>
-          </Row>
+                  <h3 className="mt-4 mb-1 text-lg font-semibold">{dept.name}</h3>
+                  {dept.description && (
+                    <p className="m-0 text-sm text-gray-400 line-clamp-2">{dept.description}</p>
+                  )}
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Ngày bắt đầu" name="start_date" rules={[{ required: true, message: 'Vui lòng chọn ngày bắt đầu' }]}>
-                <DatePicker className="!w-full" format="DD/MM/YYYY" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Ngày kết thúc" name="end_date">
-                <DatePicker className="!w-full" format="DD/MM/YYYY" />
-              </Form.Item>
-            </Col>
-          </Row>
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                    <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                      <TeamOutlined /> {dept.employee_count} nhân viên
+                    </span>
+                    {dept.manager_name && (
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        <UserOutlined /> {dept.manager_name}
+                      </span>
+                    )}
+                  </div>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
+    </div>
+  );
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Mức lương" name="salary_amount">
-                <InputNumber min={0} className="!w-full" placeholder="Nhập mức lương" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Loại tiền" name="salary_currency">
-                <Input placeholder="VND" />
-              </Form.Item>
-            </Col>
-          </Row>
+  // ---- RENDER: Employee list of selected department ----
+  const renderEmployeeView = () => (
+    <div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            className="!text-lg"
+            onClick={() => setSelectedDept(null)}
+          />
+          <div>
+            <Title level={2} className="!mb-0 !text-[40px]">{selectedDept.name}</Title>
+            <Text className="!text-[16px] !text-[#6b7289]">
+              {selectedDept.description || 'Phòng ban'} · {deptEmployees.length} nhân viên
+            </Text>
+          </div>
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={openCreateEmp}>
+          Thêm nhân viên
+        </Button>
+      </div>
 
-          <Form.Item label="Quyền lợi" name="benefits">
-            <Input.TextArea rows={3} placeholder="Ví dụ: BHXH, bảo hiểm sức khỏe, thưởng KPI..." />
-          </Form.Item>
-
-          <Form.Item label="Điều khoản" name="terms">
-            <Input.TextArea rows={4} placeholder="Các điều khoản chính của hợp đồng" />
-          </Form.Item>
-
-          <Form.Item label="Ghi chú" name="notes">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={Boolean(renewingContract)}
-        onCancel={() => {
-          setRenewingContract(null);
-          renewForm.resetFields();
-        }}
-        onOk={() => renewForm.submit()}
-        title={renewingContract ? `Gia hạn: ${renewingContract.contract_code}` : 'Gia hạn hợp đồng'}
-        confirmLoading={renewContractMutation.isPending}
-        width={860}
-      >
-        <Form form={renewForm} layout="vertical" onFinish={submitRenew}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Ngày bắt đầu phiên bản mới" name="start_date" rules={[{ required: true, message: 'Vui lòng chọn ngày bắt đầu' }]}>
-                <DatePicker className="!w-full" format="DD/MM/YYYY" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Ngày kết thúc" name="end_date">
-                <DatePicker className="!w-full" format="DD/MM/YYYY" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Loại hợp đồng" name="contract_type">
-                <Select options={CONTRACT_TYPE_OPTIONS} allowClear />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Tiêu đề (nếu đổi)" name="title">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Lương" name="salary_amount">
-                <InputNumber min={0} className="!w-full" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Loại tiền" name="salary_currency">
-                <Input placeholder="VND" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item label="Lý do gia hạn" name="reason">
-            <Input.TextArea rows={2} placeholder="Ví dụ: Gia hạn thêm 12 tháng" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={Boolean(terminatingContract)}
-        onCancel={() => {
-          setTerminatingContract(null);
-          terminateForm.resetFields();
-        }}
-        onOk={() => terminateForm.submit()}
-        title={terminatingContract ? `Chấm dứt: ${terminatingContract.contract_code}` : 'Chấm dứt hợp đồng'}
-        confirmLoading={terminateContractMutation.isPending}
-      >
-        <Form form={terminateForm} layout="vertical" onFinish={submitTerminate}>
-          <Form.Item label="Ngày chấm dứt" name="terminated_at">
-            <DatePicker className="!w-full" showTime format="DD/MM/YYYY HH:mm" />
-          </Form.Item>
-          <Form.Item label="Lý do" name="reason" rules={[{ required: true, message: 'Vui lòng nhập lý do chấm dứt' }]}>
-            <Input.TextArea rows={4} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={Boolean(uploadContract)}
-        onCancel={() => {
-          setUploadContract(null);
-          setUploadFile(null);
-          uploadForm.resetFields();
-        }}
-        onOk={() => uploadForm.submit()}
-        title={uploadContract ? `Tài liệu: ${uploadContract.contract_code}` : 'Tải tài liệu hợp đồng'}
-        confirmLoading={uploadDocumentMutation.isPending}
-      >
-        <Form form={uploadForm} layout="vertical" onFinish={submitUpload}>
-          <Form.Item label="Loại tài liệu" name="document_type" rules={[{ required: true, message: 'Vui lòng chọn loại tài liệu' }]}>
-            <Select options={DOCUMENT_TYPE_OPTIONS} />
-          </Form.Item>
-          <Form.Item label="Tập tin" required>
-            <Upload
-              maxCount={1}
-              beforeUpload={(file) => {
-                setUploadFile(file);
-                return false;
-              }}
-              onRemove={() => {
-                setUploadFile(null);
-              }}
-            >
-              <Button icon={<UploadOutlined />}>Chọn file</Button>
-            </Upload>
-          </Form.Item>
-          <Form.Item label="Ghi chú" name="notes">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={Boolean(historyContract)}
-        onCancel={() => setHistoryContract(null)}
-        footer={null}
-        title={historyContract ? `Lịch sử: ${historyContract.contract_code}` : 'Lịch sử hợp đồng'}
-        width={920}
-      >
-        <Table
-          rowKey="id"
-          columns={historyColumns}
-          dataSource={historyData || []}
-          loading={historyLoading}
-          pagination={false}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Input
+          className="search-input !max-w-[300px]"
+          prefix={<SearchOutlined />}
+          placeholder="Tìm kiếm nhân viên..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          allowClear
         />
+        <Select
+          className="!min-w-[160px]"
+          placeholder="Trạng thái"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          allowClear
+          options={[
+            { value: 'active', label: 'Đang làm' },
+            { value: 'resigned', label: 'Nghỉ việc' },
+            { value: 'on_leave', label: 'Tạm nghỉ' },
+          ]}
+        />
+      </div>
+
+      {deptEmployees.length === 0 ? (
+        <Empty description="Chưa có nhân viên trong phòng ban này" className="mt-12" />
+      ) : (
+        <Row gutter={[16, 16]} className="mt-5">
+          {deptEmployees.map((emp) => {
+            const st = STATUS_MAP[emp.status] || STATUS_MAP.active;
+            return (
+              <Col xs={24} md={12} xl={6} key={emp.id}>
+                <Card
+                  className="panel-card !h-full cursor-pointer transition-shadow hover:shadow-md"
+                  onClick={() => setDetailModal(emp)}
+                >
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={(e) => { e.stopPropagation(); openEditEmp(emp); }}
+                    />
+                    <Popconfirm
+                      title="Xóa nhân viên này?"
+                      onConfirm={(e) => { e?.stopPropagation(); handleDeleteEmp(emp.id); }}
+                      onCancel={(e) => e?.stopPropagation()}
+                      okText="Xóa"
+                      cancelText="Hủy"
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Popconfirm>
+                  </div>
+
+                  <div className="text-center">
+                    <Avatar
+                      size={80}
+                      className="!bg-[#00011f] !text-[20px]"
+                      src={resolveAvatarUrl(emp.avatar_url) || undefined}
+                    >
+                      {(emp.full_name || 'N')[0]}
+                    </Avatar>
+                    <h3 className="mt-3 text-base font-semibold">{emp.full_name}</h3>
+                    <p className="m-0 text-sm text-gray-500">{emp.position}</p>
+                    <Tag color={st.color} className="mt-2">{st.label}</Tag>
+                  </div>
+
+                  <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm text-gray-500">
+                    <p className="m-0 flex items-center gap-2"><MailOutlined /> {emp.email}</p>
+                    {emp.phone && <p className="m-0 flex items-center gap-2"><PhoneOutlined /> {emp.phone}</p>}
+                    <p className="m-0 flex items-center gap-2">
+                      <UserOutlined /> {emp.employee_code} · {CONTRACT_MAP[emp.contract_type] || emp.contract_type}
+                    </p>
+                  </div>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      <Spin spinning={loading}>
+        {selectedDept ? renderEmployeeView() : renderDepartmentView()}
+      </Spin>
+
+      {/* Employee Detail Modal */}
+      <Modal
+        title="Chi tiết nhân viên"
+        open={!!detailModal}
+        onCancel={() => setDetailModal(null)}
+        footer={null}
+        width={520}
+      >
+        {detailModal && (
+          <div className="space-y-3">
+            <div className="text-center">
+              <Avatar
+                size={96}
+                className="!bg-[#00011f] !text-[24px]"
+                src={resolveAvatarUrl(detailModal.avatar_url) || undefined}
+              >
+                {(detailModal.full_name || 'N')[0]}
+              </Avatar>
+              <h2 className="mt-3 text-xl font-bold">{detailModal.full_name}</h2>
+              <p className="text-gray-500">{detailModal.position}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-4 text-sm">
+              <div><span className="font-medium text-gray-600">Mã NV:</span> {detailModal.employee_code}</div>
+              <div><span className="font-medium text-gray-600">Phòng ban:</span> {detailModal.department_name}</div>
+              <div><span className="font-medium text-gray-600">Email:</span> {detailModal.email}</div>
+              <div><span className="font-medium text-gray-600">SĐT:</span> {detailModal.phone || '—'}</div>
+              <div><span className="font-medium text-gray-600">Loại HĐ:</span> {CONTRACT_MAP[detailModal.contract_type]}</div>
+              <div>
+                <span className="font-medium text-gray-600">Trạng thái:</span>{' '}
+                <Badge color={STATUS_MAP[detailModal.status]?.color} text={STATUS_MAP[detailModal.status]?.label} />
+              </div>
+              <div><span className="font-medium text-gray-600">Ngày vào:</span> {detailModal.start_date}</div>
+              <div><span className="font-medium text-gray-600">CMND/CCCD:</span> {detailModal.identity_number || '—'}</div>
+              {detailModal.notes && (
+                <div className="col-span-2"><span className="font-medium text-gray-600">Ghi chú:</span> {detailModal.notes}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Employee Create/Edit Modal */}
+      <Modal
+        title={editingEmp ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên mới'}
+        open={empModalOpen}
+        onOk={handleEmpSubmit}
+        onCancel={() => setEmpModalOpen(false)}
+        okText={editingEmp ? 'Cập nhật' : 'Tạo'}
+        cancelText="Hủy"
+        width={600}
+      >
+        <Form form={empForm} layout="vertical" className="mt-4">
+          <Row gutter={16}>
+            {!editingEmp && (
+              <Col span={12}>
+                <Form.Item
+                  name="user_id"
+                  label="User ID"
+                  rules={[{ required: true, message: 'Bắt buộc' }]}
+                >
+                  <InputNumber className="!w-full" placeholder="ID người dùng" min={1} />
+                </Form.Item>
+              </Col>
+            )}
+            {!editingEmp && (
+              <Col span={12}>
+                <Form.Item
+                  name="employee_code"
+                  label="Mã nhân viên"
+                  rules={[{ required: true, message: 'Bắt buộc' }]}
+                >
+                  <Input placeholder="VD: NV001" />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={12}>
+              <Form.Item
+                name="department_id"
+                label="Phòng ban"
+                rules={[{ required: !editingEmp, message: 'Bắt buộc' }]}
+              >
+                <Select placeholder="Chọn phòng ban" options={deptOptions} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="position"
+                label="Chức vụ"
+                rules={[{ required: !editingEmp, message: 'Bắt buộc' }]}
+              >
+                <Input placeholder="VD: Senior Developer" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="contract_type" label="Loại hợp đồng">
+                <Select
+                  placeholder="Chọn loại HĐ"
+                  options={[
+                    { value: 'probation', label: 'Thử việc' },
+                    { value: 'permanent', label: 'Chính thức' },
+                    { value: 'temporary', label: 'Thời vụ' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            {editingEmp && (
+              <Col span={12}>
+                <Form.Item name="status" label="Trạng thái">
+                  <Select
+                    placeholder="Chọn trạng thái"
+                    options={[
+                      { value: 'active', label: 'Đang làm' },
+                      { value: 'resigned', label: 'Nghỉ việc' },
+                      { value: 'on_leave', label: 'Tạm nghỉ' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={12}>
+              <Form.Item
+                name="start_date"
+                label="Ngày bắt đầu"
+                rules={[{ required: !editingEmp, message: 'Bắt buộc' }]}
+              >
+                <DatePicker className="!w-full" format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="end_date" label="Ngày kết thúc">
+                <DatePicker className="!w-full" format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="identity_number" label="CMND/CCCD">
+                <Input placeholder="Số CMND/CCCD" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="notes" label="Ghi chú">
+                <Input.TextArea rows={2} placeholder="Ghi chú thêm..." />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      {/* Department Create/Edit Modal */}
+      <Modal
+        title={editingDept ? 'Chỉnh sửa phòng ban' : 'Thêm phòng ban mới'}
+        open={deptModalOpen}
+        onOk={handleDeptSubmit}
+        onCancel={() => setDeptModalOpen(false)}
+        okText={editingDept ? 'Cập nhật' : 'Tạo'}
+        cancelText="Hủy"
+      >
+        <Form form={deptForm} layout="vertical" className="mt-4">
+          <Form.Item
+            name="name"
+            label="Tên phòng ban"
+            rules={[{ required: true, message: 'Vui lòng nhập tên phòng ban' }]}
+          >
+            <Input placeholder="VD: Phòng Công nghệ" />
+          </Form.Item>
+          <Form.Item name="description" label="Mô tả">
+            <TextArea rows={3} placeholder="Mô tả ngắn về phòng ban" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

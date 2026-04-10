@@ -2,8 +2,6 @@ from functools import lru_cache
 from typing import List
 
 from pydantic import Field
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

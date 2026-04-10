@@ -165,4 +165,290 @@ WHERE a.status = 'accepted'
   )
 LIMIT 12;
 
+-- =============================================
+-- Seed Departments
+-- =============================================
+INSERT INTO departments (name, description, company_id, manager_id)
+SELECT seed.name, seed.description, c.id, mgr.id
+FROM (
+    VALUES
+        ('TechNova Solutions', 'Phòng Công nghệ',      'Phát triển phần mềm, hạ tầng và AI',           'hr1@example.com'),
+        ('TechNova Solutions', 'Phòng Nhân sự',         'Tuyển dụng, đào tạo và quản lý nhân viên',     'hr1@example.com'),
+        ('TechNova Solutions', 'Phòng Marketing',       'Truyền thông, thương hiệu và quảng cáo',       NULL),
+        ('TechNova Solutions', 'Phòng Kinh doanh',      'Phát triển khách hàng và doanh thu',            NULL),
+        ('DigitalWave Labs',   'Phòng Sản phẩm',        'Quản lý sản phẩm và trải nghiệm người dùng',  'hr2@example.com'),
+        ('DigitalWave Labs',   'Phòng Thiết kế',        'UI/UX và thiết kế đồ họa',                      NULL),
+        ('DigitalWave Labs',   'Phòng Công nghệ',       'Frontend, backend và mobile development',       'hr2@example.com'),
+        ('SkyBridge Systems',  'Phòng Hạ tầng',         'Cloud, DevOps và bảo mật hệ thống',            'hr3@example.com'),
+        ('SkyBridge Systems',  'Phòng QA',              'Kiểm thử và đảm bảo chất lượng phần mềm',      NULL),
+        ('SkyBridge Systems',  'Phòng Nhân sự',         'Quản lý nhân sự và hành chính',                 'hr3@example.com')
+) AS seed(company_name, name, description, mgr_email)
+JOIN companies c ON c.name = seed.company_name
+LEFT JOIN users mgr ON mgr.email = seed.mgr_email
+WHERE NOT EXISTS (
+    SELECT 1 FROM departments d
+    WHERE d.name = seed.name AND d.company_id = c.id AND d.deleted_at IS NULL
+);
+
+-- =============================================
+-- Seed Employees (from existing candidate users)
+-- =============================================
+INSERT INTO employees (employee_code, position, status, contract_type, start_date, identity_number, user_id, department_id, company_id)
+SELECT
+    seed.emp_code,
+    seed.position,
+    seed.status,
+    seed.contract_type,
+    seed.start_date::date,
+    seed.id_number,
+    u.id,
+    d.id,
+    c.id
+FROM (
+    VALUES
+        ('candidate01@example.com', 'TechNova Solutions', 'Phòng Công nghệ',  'NV001', 'Senior Backend Engineer',  'active',   'permanent',  '2022-03-15', '001099012345'),
+        ('candidate02@example.com', 'TechNova Solutions', 'Phòng Công nghệ',  'NV002', 'Junior Backend Developer', 'active',   'probation',  '2025-11-01', '001099012346'),
+        ('candidate03@example.com', 'TechNova Solutions', 'Phòng Nhân sự',    'NV003', 'Chuyên viên tuyển dụng',   'active',   'permanent',  '2023-06-10', '001099012347'),
+        ('candidate04@example.com', 'TechNova Solutions', 'Phòng Marketing',  'NV004', 'Content Marketing',        'active',   'permanent',  '2023-01-05', '001099012348'),
+        ('candidate05@example.com', 'TechNova Solutions', 'Phòng Kinh doanh', 'NV005', 'Sales Executive',          'active',   'temporary',  '2024-07-20', '001099012349'),
+        ('candidate06@example.com', 'TechNova Solutions', 'Phòng Công nghệ',  'NV006', 'Data Engineer',            'on_leave', 'permanent',  '2022-09-01', '001099012350'),
+        ('candidate07@example.com', 'DigitalWave Labs',   'Phòng Sản phẩm',   'NV007', 'Product Manager',          'active',   'permanent',  '2021-04-15', '001099012351'),
+        ('candidate08@example.com', 'DigitalWave Labs',   'Phòng Thiết kế',   'NV008', 'UI/UX Designer',           'active',   'permanent',  '2022-08-20', '001099012352'),
+        ('candidate09@example.com', 'DigitalWave Labs',   'Phòng Công nghệ',  'NV009', 'Frontend Developer',       'active',   'permanent',  '2023-02-10', '001099012353'),
+        ('candidate10@example.com', 'DigitalWave Labs',   'Phòng Thiết kế',   'NV010', 'Graphic Designer',         'resigned', 'permanent',  '2021-11-01', '001099012354'),
+        ('candidate11@example.com', 'SkyBridge Systems',  'Phòng Hạ tầng',    'NV011', 'DevOps Engineer',          'active',   'permanent',  '2022-05-10', '001099012355'),
+        ('candidate12@example.com', 'SkyBridge Systems',  'Phòng QA',         'NV012', 'QA Engineer',              'active',   'permanent',  '2023-03-01', '001099012356'),
+        ('candidate13@example.com', 'SkyBridge Systems',  'Phòng Hạ tầng',    'NV013', 'Cloud Architect',          'active',   'permanent',  '2021-01-15', '001099012357'),
+        ('candidate14@example.com', 'SkyBridge Systems',  'Phòng Nhân sự',    'NV014', 'HR Coordinator',           'active',   'temporary',  '2024-09-01', '001099012358'),
+        ('candidate15@example.com', 'SkyBridge Systems',  'Phòng QA',         'NV015', 'Automation Tester',        'on_leave', 'permanent',  '2022-12-01', '001099012359')
+) AS seed(user_email, company_name, dept_name, emp_code, position, status, contract_type, start_date, id_number)
+JOIN users u ON u.email = seed.user_email
+JOIN companies c ON c.name = seed.company_name
+JOIN departments d ON d.name = seed.dept_name AND d.company_id = c.id AND d.deleted_at IS NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM employees e WHERE e.employee_code = seed.emp_code AND e.deleted_at IS NULL
+);
+
+-- =============================================
+-- Onboarding Templates & Tasks
+-- =============================================
+
+-- Template 1: Standard Onboarding (TechNova)
+INSERT INTO onboarding_templates (name, description, company_id)
+SELECT 'Onboarding Nhân viên mới', 'Quy trình tiếp nhận nhân viên mới tiêu chuẩn', c.id
+FROM companies c WHERE c.name = 'TechNova Solutions'
+AND NOT EXISTS (
+    SELECT 1 FROM onboarding_templates t WHERE t.name = 'Onboarding Nhân viên mới'
+      AND t.company_id = c.id AND t.deleted_at IS NULL
+);
+
+INSERT INTO onboarding_tasks (title, description, priority, "order", template_id)
+SELECT seed.title, seed.description, seed.priority, seed.ord, t.id
+FROM (VALUES
+    ('Chuẩn bị bàn làm việc & thiết bị', 'Laptop, màn hình, bàn phím, chuột, tai nghe', 'high', 1),
+    ('Tạo tài khoản email & công cụ nội bộ', 'Gmail, Slack, Jira, GitLab', 'high', 2),
+    ('Gửi tài liệu nội quy công ty', 'Gồm handbook, chính sách bảo mật, quy định chấm công', 'medium', 3),
+    ('Giới thiệu team & mentor', 'Sắp xếp buổi gặp mặt với đội nhóm và người hướng dẫn', 'high', 4),
+    ('Đào tạo an toàn thông tin', 'Hoàn thành khóa học bảo mật nội bộ', 'medium', 5),
+    ('Thiết lập VPN & môi trường dev', 'Cài đặt VPN, Docker, IDE, clone repository', 'high', 6),
+    ('Review code conventions & workflow', 'Branching strategy, code review, CI/CD pipeline', 'medium', 7),
+    ('Hoàn thành hồ sơ nhân sự', 'Nộp CMND/CCCD, ảnh 3x4, sổ hộ khẩu, bằng cấp', 'high', 8),
+    ('Đăng ký BHXH & thuế TNCN', 'Cung cấp mã số thuế, đăng ký bảo hiểm', 'medium', 9),
+    ('Đánh giá sau tuần đầu tiên', 'Mentor đánh giá và phản hồi sau 1 tuần', 'low', 10)
+) AS seed(title, description, priority, ord)
+CROSS JOIN onboarding_templates t
+WHERE t.name = 'Onboarding Nhân viên mới'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'TechNova Solutions')
+  AND t.deleted_at IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM onboarding_tasks ot WHERE ot.template_id = t.id AND ot.title = seed.title
+  );
+
+-- Template 2: IT Onboarding (TechNova)
+INSERT INTO onboarding_templates (name, description, company_id)
+SELECT 'Onboarding IT/Dev', 'Quy trình dành riêng cho developer & kỹ sư phần mềm', c.id
+FROM companies c WHERE c.name = 'TechNova Solutions'
+AND NOT EXISTS (
+    SELECT 1 FROM onboarding_templates t WHERE t.name = 'Onboarding IT/Dev'
+      AND t.company_id = c.id AND t.deleted_at IS NULL
+);
+
+INSERT INTO onboarding_tasks (title, description, priority, "order", template_id)
+SELECT seed.title, seed.description, seed.priority, seed.ord, t.id
+FROM (VALUES
+    ('Cấp quyền truy cập GitLab/GitHub', 'Thêm vào organization và các repo liên quan', 'high', 1),
+    ('Cài đặt môi trường phát triển', 'IDE, Docker, Node.js, Python, database local', 'high', 2),
+    ('Chạy project local lần đầu', 'Clone repo, cài dependencies, chạy migration, seed data', 'high', 3),
+    ('Đọc tài liệu kiến trúc hệ thống', 'System design docs, API docs, database schema', 'medium', 4),
+    ('Pair programming với senior', 'Ít nhất 2 buổi pair programming trong tuần đầu', 'medium', 5),
+    ('Hoàn thành task onboarding đầu tiên', 'Fix 1 bug hoặc implement 1 feature nhỏ', 'low', 6)
+) AS seed(title, description, priority, ord)
+CROSS JOIN onboarding_templates t
+WHERE t.name = 'Onboarding IT/Dev'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'TechNova Solutions')
+  AND t.deleted_at IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM onboarding_tasks ot WHERE ot.template_id = t.id AND ot.title = seed.title
+  );
+
+-- Template 3: Generic onboarding (DigitalWave)
+INSERT INTO onboarding_templates (name, description, company_id)
+SELECT 'Chương trình Hội nhập', 'Quy trình onboarding cơ bản cho nhân viên DigitalWave', c.id
+FROM companies c WHERE c.name = 'DigitalWave Labs'
+AND NOT EXISTS (
+    SELECT 1 FROM onboarding_templates t WHERE t.name = 'Chương trình Hội nhập'
+      AND t.company_id = c.id AND t.deleted_at IS NULL
+);
+
+INSERT INTO onboarding_tasks (title, description, priority, "order", template_id)
+SELECT seed.title, seed.description, seed.priority, seed.ord, t.id
+FROM (VALUES
+    ('Ký hợp đồng lao động', 'Ký HĐ chính thức và các phụ lục', 'high', 1),
+    ('Nhận thẻ nhân viên & vân tay chấm công', 'Đăng ký vân tay và phát thẻ từ', 'high', 2),
+    ('Tham quan văn phòng', 'Tour giới thiệu các phòng ban, canteen, phòng họp', 'low', 3),
+    ('Đào tạo văn hóa doanh nghiệp', 'Tham gia buổi giới thiệu về giá trị và tầm nhìn công ty', 'medium', 4),
+    ('Setup email & chat nội bộ', 'Tạo tài khoản Outlook, Microsoft Teams', 'high', 5),
+    ('Gặp mặt quản lý trực tiếp', 'Buổi 1-on-1 lần đầu với manager', 'medium', 6),
+    ('Hoàn thành hồ sơ nhân sự', 'Nộp đầy đủ giấy tờ theo checklist HR', 'high', 7)
+) AS seed(title, description, priority, ord)
+CROSS JOIN onboarding_templates t
+WHERE t.name = 'Chương trình Hội nhập'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'DigitalWave Labs')
+  AND t.deleted_at IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM onboarding_tasks ot WHERE ot.template_id = t.id AND ot.title = seed.title
+  );
+
+-- =============================================
+-- Onboarding Assignments (assign to some employees)
+-- =============================================
+
+-- Assign "Onboarding Nhân viên mới" to employee NV003 (new hire)
+INSERT INTO onboarding_assignments (status, due_date, employee_id, template_id, assigned_by_id, company_id)
+SELECT 'in_progress', CURRENT_DATE + INTERVAL '14 days',
+       e.id, t.id,
+       (SELECT u.id FROM users u WHERE u.email = 'hr1@technova.example'),
+       e.company_id
+FROM employees e
+JOIN onboarding_templates t ON t.name = 'Onboarding Nhân viên mới'
+  AND t.company_id = e.company_id AND t.deleted_at IS NULL
+WHERE e.employee_code = 'NV003' AND e.deleted_at IS NULL
+AND NOT EXISTS (
+    SELECT 1 FROM onboarding_assignments a
+    WHERE a.employee_id = e.id AND a.template_id = t.id AND a.status != 'completed'
+);
+
+-- Create task progress for the assignment above
+INSERT INTO onboarding_task_progress (is_completed, completed_at, assignment_id, task_id)
+SELECT
+    CASE WHEN ot."order" <= 4 THEN TRUE ELSE FALSE END,
+    CASE WHEN ot."order" <= 4 THEN NOW() ELSE NULL END,
+    a.id, ot.id
+FROM onboarding_assignments a
+JOIN onboarding_tasks ot ON ot.template_id = a.template_id
+WHERE a.employee_id = (SELECT id FROM employees WHERE employee_code = 'NV003' AND deleted_at IS NULL)
+  AND a.template_id = (
+      SELECT id FROM onboarding_templates
+      WHERE name = 'Onboarding Nhân viên mới'
+        AND company_id = (SELECT id FROM companies WHERE name = 'TechNova Solutions')
+        AND deleted_at IS NULL
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM onboarding_task_progress tp WHERE tp.assignment_id = a.id AND tp.task_id = ot.id
+  );
+
+-- Assign "Onboarding IT/Dev" to employee NV005
+INSERT INTO onboarding_assignments (status, due_date, employee_id, template_id, assigned_by_id, company_id)
+SELECT 'not_started', CURRENT_DATE + INTERVAL '7 days',
+       e.id, t.id,
+       (SELECT u.id FROM users u WHERE u.email = 'hr1@technova.example'),
+       e.company_id
+FROM employees e
+JOIN onboarding_templates t ON t.name = 'Onboarding IT/Dev'
+  AND t.company_id = e.company_id AND t.deleted_at IS NULL
+WHERE e.employee_code = 'NV005' AND e.deleted_at IS NULL
+AND NOT EXISTS (
+    SELECT 1 FROM onboarding_assignments a
+    WHERE a.employee_id = e.id AND a.template_id = t.id AND a.status != 'completed'
+);
+
+-- Create task progress for NV005
+INSERT INTO onboarding_task_progress (is_completed, assignment_id, task_id)
+SELECT FALSE, a.id, ot.id
+FROM onboarding_assignments a
+JOIN onboarding_tasks ot ON ot.template_id = a.template_id
+WHERE a.employee_id = (SELECT id FROM employees WHERE employee_code = 'NV005' AND deleted_at IS NULL)
+  AND a.template_id = (
+      SELECT id FROM onboarding_templates
+      WHERE name = 'Onboarding IT/Dev'
+        AND company_id = (SELECT id FROM companies WHERE name = 'TechNova Solutions')
+        AND deleted_at IS NULL
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM onboarding_task_progress tp WHERE tp.assignment_id = a.id AND tp.task_id = ot.id
+  );
+
+-- =============================================
+-- Attendance (Chấm công) - last 5 working days for TechNova employees
+-- =============================================
+INSERT INTO attendances (date, check_in, check_out, status, work_hours, employee_id, company_id)
+SELECT seed.att_date, seed.ci, seed.co, seed.st,
+       EXTRACT(EPOCH FROM (seed.co - seed.ci)) / 3600.0,
+       e.id, e.company_id
+FROM (VALUES
+    -- NV001
+    ('NV001', CURRENT_DATE - 1, TIME '08:02', TIME '17:05', 'present'),
+    ('NV001', CURRENT_DATE - 2, TIME '08:15', TIME '17:00', 'late'),
+    ('NV001', CURRENT_DATE - 3, TIME '07:55', TIME '17:10', 'present'),
+    ('NV001', CURRENT_DATE - 4, TIME '08:00', TIME '12:00', 'half_day'),
+    ('NV001', CURRENT_DATE - 5, TIME '08:00', TIME '17:30', 'present'),
+    -- NV002
+    ('NV002', CURRENT_DATE - 1, TIME '08:00', TIME '17:00', 'present'),
+    ('NV002', CURRENT_DATE - 2, TIME '09:10', TIME '17:00', 'late'),
+    ('NV002', CURRENT_DATE - 3, NULL, NULL, 'absent'),
+    ('NV002', CURRENT_DATE - 4, TIME '08:05', TIME '17:15', 'present'),
+    ('NV002', CURRENT_DATE - 5, TIME '07:50', TIME '17:00', 'present'),
+    -- NV003
+    ('NV003', CURRENT_DATE - 1, TIME '08:00', TIME '17:00', 'present'),
+    ('NV003', CURRENT_DATE - 2, TIME '08:00', TIME '17:30', 'present'),
+    ('NV003', CURRENT_DATE - 3, TIME '08:30', TIME '17:00', 'late'),
+    -- NV004
+    ('NV004', CURRENT_DATE - 1, TIME '07:45', TIME '16:50', 'present'),
+    ('NV004', CURRENT_DATE - 2, TIME '08:00', TIME '17:00', 'present'),
+    -- NV005
+    ('NV005', CURRENT_DATE - 1, NULL, NULL, 'absent'),
+    ('NV005', CURRENT_DATE - 2, TIME '08:00', TIME '17:00', 'present')
+) AS seed(emp_code, att_date, ci, co, st)
+JOIN employees e ON e.employee_code = seed.emp_code AND e.deleted_at IS NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM attendances a WHERE a.employee_id = e.id AND a.date = seed.att_date
+);
+
+-- =============================================
+-- Leave Requests (Nghỉ phép)
+-- =============================================
+INSERT INTO leave_requests (leave_type, start_date, end_date, total_days, reason, status, approved_at, employee_id, approved_by_id, company_id)
+SELECT seed.lt, seed.sd, seed.ed, seed.td, seed.reason, seed.st,
+       CASE WHEN seed.st IN ('approved','rejected') THEN NOW() ELSE NULL END,
+       e.id,
+       CASE WHEN seed.st IN ('approved','rejected')
+            THEN (SELECT u.id FROM users u WHERE u.email = 'hr1@technova.example')
+            ELSE NULL END,
+       e.company_id
+FROM (VALUES
+    ('NV001', 'annual',    CURRENT_DATE + 5,  CURRENT_DATE + 7,  3, 'Nghỉ phép năm - du lịch gia đình', 'approved'),
+    ('NV002', 'sick',      CURRENT_DATE - 3,  CURRENT_DATE - 3,  1, 'Ốm, cần nghỉ khám bệnh', 'approved'),
+    ('NV003', 'personal',  CURRENT_DATE + 10, CURRENT_DATE + 11, 2, 'Việc cá nhân cần giải quyết', 'pending'),
+    ('NV004', 'annual',    CURRENT_DATE + 14, CURRENT_DATE + 18, 5, 'Nghỉ phép dài ngày', 'pending'),
+    ('NV005', 'sick',      CURRENT_DATE - 1,  CURRENT_DATE - 1,  1, 'Không khỏe', 'approved'),
+    ('NV001', 'maternity', CURRENT_DATE + 30, CURRENT_DATE + 210, 180, 'Nghỉ thai sản', 'rejected'),
+    ('NV006', 'annual',    CURRENT_DATE + 3,  CURRENT_DATE + 4,  2, 'Nghỉ phép cá nhân', 'pending'),
+    ('NV007', 'unpaid',    CURRENT_DATE + 7,  CURRENT_DATE + 9,  3, 'Nghỉ không lương - việc gia đình', 'pending')
+) AS seed(emp_code, lt, sd, ed, td, reason, st)
+JOIN employees e ON e.employee_code = seed.emp_code AND e.deleted_at IS NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM leave_requests lr
+    WHERE lr.employee_id = e.id AND lr.start_date = seed.sd AND lr.leave_type = seed.lt
+);
+
 COMMIT;

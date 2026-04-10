@@ -149,3 +149,149 @@ WHERE title IS NULL;
 
 CREATE INDEX IF NOT EXISTS ix_interviews_interview_mode ON interviews (interview_mode);
 CREATE INDEX IF NOT EXISTS ix_interviews_result_status ON interviews (result_status);
+
+-- =============================================
+-- Departments & Employees
+-- =============================================
+CREATE TABLE IF NOT EXISTS departments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    manager_id INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_departments_company_id ON departments(company_id);
+CREATE INDEX IF NOT EXISTS idx_departments_name ON departments(name);
+CREATE INDEX IF NOT EXISTS idx_departments_deleted_at ON departments(deleted_at);
+
+CREATE TABLE IF NOT EXISTS employees (
+    id SERIAL PRIMARY KEY,
+    employee_code VARCHAR(50) NOT NULL UNIQUE,
+    position VARCHAR(150) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    contract_type VARCHAR(20) NOT NULL DEFAULT 'permanent',
+    start_date DATE NOT NULL,
+    end_date DATE,
+    identity_number VARCHAR(20),
+    notes TEXT,
+    user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    department_id INT NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_employees_employee_code ON employees(employee_code);
+CREATE INDEX IF NOT EXISTS idx_employees_user_id ON employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_employees_department_id ON employees(department_id);
+CREATE INDEX IF NOT EXISTS idx_employees_company_id ON employees(company_id);
+CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status);
+CREATE INDEX IF NOT EXISTS idx_employees_deleted_at ON employees(deleted_at);
+
+-- =============================================
+-- Onboarding
+-- =============================================
+CREATE TABLE IF NOT EXISTS onboarding_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_templates_company_id ON onboarding_templates(company_id);
+CREATE INDEX IF NOT EXISTS idx_onboarding_templates_deleted_at ON onboarding_templates(deleted_at);
+
+CREATE TABLE IF NOT EXISTS onboarding_tasks (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(300) NOT NULL,
+    description TEXT,
+    priority VARCHAR(20) NOT NULL DEFAULT 'medium',
+    "order" INT NOT NULL DEFAULT 0,
+    template_id INT NOT NULL REFERENCES onboarding_templates(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_tasks_template_id ON onboarding_tasks(template_id);
+
+CREATE TABLE IF NOT EXISTS onboarding_assignments (
+    id SERIAL PRIMARY KEY,
+    status VARCHAR(20) NOT NULL DEFAULT 'not_started',
+    due_date DATE,
+    completed_at TIMESTAMPTZ,
+    notes TEXT,
+    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    template_id INT NOT NULL REFERENCES onboarding_templates(id) ON DELETE RESTRICT,
+    assigned_by_id INT REFERENCES users(id) ON DELETE SET NULL,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_assignments_employee_id ON onboarding_assignments(employee_id);
+CREATE INDEX IF NOT EXISTS idx_onboarding_assignments_template_id ON onboarding_assignments(template_id);
+CREATE INDEX IF NOT EXISTS idx_onboarding_assignments_company_id ON onboarding_assignments(company_id);
+CREATE INDEX IF NOT EXISTS idx_onboarding_assignments_status ON onboarding_assignments(status);
+
+CREATE TABLE IF NOT EXISTS onboarding_task_progress (
+    id SERIAL PRIMARY KEY,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TIMESTAMPTZ,
+    note TEXT,
+    assignment_id INT NOT NULL REFERENCES onboarding_assignments(id) ON DELETE CASCADE,
+    task_id INT NOT NULL REFERENCES onboarding_tasks(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_task_progress_assignment_id ON onboarding_task_progress(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_onboarding_task_progress_task_id ON onboarding_task_progress(task_id);
+
+-- =============================================
+-- Attendance (Chấm công)
+-- =============================================
+CREATE TABLE IF NOT EXISTS attendances (
+    id SERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    check_in TIME,
+    check_out TIME,
+    status VARCHAR(20) NOT NULL DEFAULT 'present',
+    work_hours FLOAT,
+    notes TEXT,
+    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_attendance_employee_date UNIQUE (employee_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_attendances_employee_id ON attendances(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendances_company_id ON attendances(company_id);
+CREATE INDEX IF NOT EXISTS idx_attendances_date ON attendances(date);
+CREATE INDEX IF NOT EXISTS idx_attendances_status ON attendances(status);
+
+-- =============================================
+-- Leave Requests (Nghỉ phép)
+-- =============================================
+CREATE TABLE IF NOT EXISTS leave_requests (
+    id SERIAL PRIMARY KEY,
+    leave_type VARCHAR(20) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    total_days FLOAT NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    rejected_reason TEXT,
+    approved_at TIMESTAMPTZ,
+    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    approved_by_id INT REFERENCES users(id) ON DELETE SET NULL,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_employee_id ON leave_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_company_id ON leave_requests(company_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_leave_type ON leave_requests(leave_type);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_start_date ON leave_requests(start_date);

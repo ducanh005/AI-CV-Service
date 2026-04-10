@@ -44,3 +44,4 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
     created_contracts = relationship("Contract", back_populates="created_by", foreign_keys="Contract.created_by_id")
     uploaded_contract_documents = relationship("ContractDocument", back_populates="uploaded_by")
     contract_status_changes = relationship("ContractStatusHistory", back_populates="changed_by")
+    employee = relationship("Employee", back_populates="user", uselist=False)

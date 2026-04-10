@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+
 from slowapi import _rate_limit_exceeded_handler
 
 from app.api.router import api_router
@@ -33,6 +35,11 @@ async def lifespan(_: FastAPI):
     yield
 
 
+def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
+    """Wrapper for rate limit exception handler."""
+    return _rate_limit_exceeded_handler(request, exc)  # type: ignore[arg-type]
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
@@ -43,18 +50,26 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 register_exception_handlers(app)
+
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 uploads_path = Path(settings.UPLOAD_DIR)

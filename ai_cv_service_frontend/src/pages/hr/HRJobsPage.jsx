@@ -95,14 +95,14 @@ function HRJobsPage() {
     <div>
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <Title level={2} className="!mb-1 !text-[52px]">Tin tuyển dụng</Title>
-          <Text className="!text-[30px] !text-[#6b7289]">Quản lý các vị trí tuyển dụng đang mở</Text>
+          <Title level={2} className="!mb-1 !text-[40px]">Tin tuyển dụng</Title>
+          <Text className="!text-[20px] !text-[#6b7289]">Quản lý các vị trí tuyển dụng đang mở</Text>
         </div>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={openCreate}
-          className="!h-[56px] !rounded-[14px] !bg-[#00011f] !px-8 !text-[18px]"
+          className="!h-[50px] !rounded-[14px] !bg-[#00011f] !px-7 !text-[16px]"
         >
           Đăng tin tuyển dụng
         </Button>
@@ -111,31 +111,43 @@ function HRJobsPage() {
       <Row gutter={[16, 16]}>
         {jobs.map((job) => (
           <Col xs={24} xl={12} xxl={8} key={job.id}>
-            <Card className="panel-card">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="m-0 text-[40px] font-semibold">{job.title}</h3>
-                <Tag color={job.status === 'open' ? 'green' : 'default'} className="!rounded-full !text-[26px]">
+            <Card className="panel-card !h-full">
+              <div className="flex h-full flex-col">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <h3
+                    className="m-0 text-[26px] font-semibold leading-tight"
+                    style={{
+                      display: '-webkit-box',
+                      overflow: 'hidden',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                    }}
+                  >
+                    {job.title}
+                  </h3>
+                  <Tag color={job.status === 'open' ? 'green' : 'default'} className="!m-0 !rounded-full !px-3 !py-1 !text-[13px] !font-medium !leading-[18px]">
                   {job.status === 'open' ? 'Đang mở' : 'Đã đóng'}
-                </Tag>
-              </div>
-              <p className="mb-3 text-[19px] text-[#6b7289]">Công nghệ</p>
-              <div className="space-y-1 text-[18px] text-[#6b7289]">
-                <p className="m-0 flex items-center gap-2"><EnvironmentOutlined /> {job.location || 'Hà Nội'}</p>
-                <p className="m-0 flex items-center gap-2"><DollarOutlined /> {job.salary_min || 20}-{job.salary_max || 40} triệu</p>
-                <p className="m-0 flex items-center gap-2"><UsergroupAddOutlined /> 45 ứng viên</p>
-              </div>
+                  </Tag>
+                </div>
 
-              <div className="mt-4 flex items-center justify-end gap-2 border-t border-gray-200 pt-3">
-                <Button icon={<EditOutlined />} onClick={() => openEdit(job)} />
-                <Popconfirm
-                  title="Xóa tin tuyển dụng"
-                  description="Bạn chắc chắn muốn xóa tin này?"
-                  okText="Xóa"
-                  cancelText="Hủy"
-                  onConfirm={() => onDeleteJob(job.id)}
-                >
-                  <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending} />
-                </Popconfirm>
+                <div className="min-h-[96px] space-y-2 text-[15px] text-[#6b7289]">
+                  <p className="m-0 flex items-center gap-2"><EnvironmentOutlined /> {job.location || 'Hà Nội'}</p>
+                  <p className="m-0 flex items-center gap-2"><DollarOutlined /> {job.salary_min || 20}-{job.salary_max || 40} triệu</p>
+                  <p className="m-0 flex items-center gap-2"><UsergroupAddOutlined /> 45 ứng viên</p>
+                </div>
+
+                <div className="mt-auto flex items-center justify-end gap-2 border-t border-gray-200 pt-3">
+                  <Button icon={<EditOutlined />} onClick={() => openEdit(job)} />
+                  <Popconfirm
+                    title="Xóa tin tuyển dụng"
+                    description="Bạn chắc chắn muốn xóa tin này?"
+                    okText="Xóa"
+                    cancelText="Hủy"
+                    onConfirm={() => onDeleteJob(job.id)}
+                  >
+                    <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending} />
+                  </Popconfirm>
+                </div>
               </div>
             </Card>
           </Col>

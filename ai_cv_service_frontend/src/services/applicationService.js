@@ -11,9 +11,9 @@ export const applicationService = {
         });
         return data;
     },
-    listByCompany: async ({ page, pageSize }) => {
+    listByCompany: async ({ page, pageSize, status }) => {
         const { data } = await api.get("/applications/company", {
-            params: { page, page_size: pageSize },
+            params: { page, page_size: pageSize, status },
         });
         return data;
     },

@@ -20,6 +20,7 @@ import HRIntegrationsPage from '../pages/hr/HRIntegrationsPage';
 import HRProfilePage from '../pages/hr/HRProfilePage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 import NotFoundPage from '../pages/NotFoundPage';
+import HRInterviewsPage from "../pages/hr/HRInterviewsPage";
 
 function RootRedirect() {
   const { user } = useAuthStore();
@@ -55,6 +56,7 @@ function AppRoutesContent() {
 
       <Route element={<ProtectedRoute allowedRoles={['hr']} />}>
         <Route path="/hr" element={<HRLayout />}>
+          <Route path="interviews" element={<HRInterviewsPage />} />
           <Route path="dashboard" element={<HRDashboardPage />} />
           <Route path="candidates" element={<HRCandidatesPage />} />
           <Route path="jobs" element={<HRJobsPage />} />

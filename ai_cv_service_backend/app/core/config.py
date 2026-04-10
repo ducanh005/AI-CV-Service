@@ -2,11 +2,14 @@ from functools import lru_cache
 from typing import List
 
 from pydantic import Field
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
+BASE_DIR = Path(__file__).resolve().parent
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(BASE_DIR.parent.parent / ".env"), env_file_encoding="utf-8", extra="ignore")
 
     APP_NAME: str = "Smart Recruitment & HR Platform"
     APP_ENV: str = "development"
@@ -44,6 +47,9 @@ class Settings(BaseSettings):
     LINKEDIN_REDIRECT_URI: str = ""
     LINKEDIN_FRONTEND_CALLBACK_URI: str = "http://localhost:5173/oauth/linkedin/callback"
     LINKEDIN_OAUTH_SCOPE: str = "openid profile email"
+    
+    GOOGLE_CALENDAR_ID: str = "trantoan278@gmail.com"
+    GOOGLE_SERVICE_ACCOUNT_FILE: str = str(BASE_DIR / "service_account.json")
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

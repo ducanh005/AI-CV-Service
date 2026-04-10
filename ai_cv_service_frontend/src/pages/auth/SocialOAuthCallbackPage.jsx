@@ -8,6 +8,7 @@ import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { tokenStorage } from '../../utils/storage';
 import {
+  extractRoleFromOAuthState,
   extractAllowedRoles,
   getOAuthGuardSet,
   getSocialProviderLabel,
@@ -78,6 +79,7 @@ function SocialOAuthCallbackPage() {
 
     const code = (searchParams.get('code') || '').trim();
     const state = (searchParams.get('state') || '').trim();
+    const preferredRoleFromState = extractRoleFromOAuthState(state);
     const oauthError = (searchParams.get('error') || '').trim();
     const oauthErrorDescription = (searchParams.get('error_description') || '').trim();
 
@@ -127,10 +129,23 @@ function SocialOAuthCallbackPage() {
           await finalizeSocialAuth(normalizedPayload);
         } catch (registerError) {
           if (isRoleRequiredError(registerError)) {
-            setNeedRoleSelection(true);
             const roles = extractAllowedRoles(registerError);
+            const preferredRole = preferredRoleFromState && roles.includes(preferredRoleFromState)
+              ? preferredRoleFromState
+              : null;
+
+            if (preferredRole) {
+              try {
+                await finalizeSocialAuth(normalizedPayload, preferredRole);
+                return;
+              } catch {
+                // Fallback to manual role selection UI below.
+              }
+            }
+
+            setNeedRoleSelection(true);
             setAllowedRoles(roles);
-            setSelectedRole(roles[0] || 'user');
+            setSelectedRole(preferredRole || roles[0] || 'user');
             setStatus('Lần đầu đăng nhập social, vui lòng chọn vai trò tài khoản.');
             setErrorMessage('');
             return;

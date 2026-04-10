@@ -27,3 +27,4 @@ class Application(TimestampMixin, Base):
     cv = relationship("CV", back_populates="applications")
     ai_score = relationship("AIScore", back_populates="application", uselist=False)
     interviews = relationship("Interview", back_populates="application")
+    contracts = relationship("Contract", back_populates="source_application")

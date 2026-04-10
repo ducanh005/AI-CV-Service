@@ -1,6 +1,9 @@
 from app.models.ai_score import AIScore
 from app.models.application import Application
 from app.models.company import Company
+from app.models.contract import Contract
+from app.models.contract_document import ContractDocument
+from app.models.contract_status_history import ContractStatusHistory
 from app.models.cv import CV
 from app.models.interview import Interview
 from app.models.job import Job
@@ -14,6 +17,9 @@ __all__ = [
     "AIScore",
     "Application",
     "Company",
+    "Contract",
+    "ContractDocument",
+    "ContractStatusHistory",
     "CV",
     "Interview",
     "Job",

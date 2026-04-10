@@ -16,3 +16,4 @@ class Company(TimestampMixin, SoftDeleteMixin, Base):
 
     hr_users = relationship("User", back_populates="company")
     jobs = relationship("Job", back_populates="company")
+    contracts = relationship("Contract", back_populates="company")

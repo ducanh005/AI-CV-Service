@@ -28,10 +28,7 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/%2F"
     RABBITMQ_EXCHANGE: str = "recruitment.events"
     RABBITMQ_SCORING_REQUEST_ROUTING_KEY: str = "cv.scoring.request"
-    RABBITMQ_SCORING_RESULT_ROUTING_KEY: str = "cv.scoring.result"
-    RABBITMQ_SCORING_FAILED_ROUTING_KEY: str = "cv.scoring.failed"
-    RABBITMQ_RESULT_QUEUE: str = "cv.scoring.result.queue"
-    RABBITMQ_FAILED_QUEUE: str = "cv.scoring.failed.queue"
+    RABBITMQ_REQUEST_QUEUE: str = "cv.scoring.request.queue"
 
     BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
@@ -39,6 +36,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     AVATAR_DIR: str = "uploads/avatars"
     CV_DIR: str = "uploads/cvs"
+    CONTRACT_DOC_DIR: str = "uploads/contracts"
     MAX_FILE_SIZE_MB: int = 10
 
     LINKEDIN_CLIENT_ID: str = ""

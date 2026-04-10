@@ -40,3 +40,7 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
     )
     interviews_as_candidate = relationship("Interview", back_populates="candidate", foreign_keys="Interview.candidate_id")
     interviews_as_hr = relationship("Interview", back_populates="hr", foreign_keys="Interview.hr_id")
+    contracts_as_employee = relationship("Contract", back_populates="employee", foreign_keys="Contract.employee_id")
+    created_contracts = relationship("Contract", back_populates="created_by", foreign_keys="Contract.created_by_id")
+    uploaded_contract_documents = relationship("ContractDocument", back_populates="uploaded_by")
+    contract_status_changes = relationship("ContractStatusHistory", back_populates="changed_by")

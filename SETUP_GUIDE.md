@@ -77,19 +77,6 @@ source .venv/Scripts/activate
 python -m app.workers.scoring_result_consumer
 ```
 
-### Chay ai-service cham diem CV
-
-Tu thu muc goc project:
-
-```bash
-cd scoring_cv_ai
-python -m venv .venv
-source .venv/Scripts/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload --port 5005
-```
-
 ## 4) Setup Frontend (React + Vite)
 
 Tu thu muc goc project:
@@ -127,7 +114,6 @@ docker compose up --build
 
 API: http://localhost:8000
 Swagger: http://localhost:8000/docs
-AI scoring health: http://localhost:5005/health
 
 ## 6) Seed du lieu mau (tuy chon)
 
@@ -148,9 +134,8 @@ Tai khoan test (password: `Password@123`):
 1. Chay backend (`uvicorn ...`)
 2. Chay worker (neu can)
 3. Chay scoring result consumer
-4. Chay ai-service scoring_cv_ai
-5. Chay frontend (`npm run dev`)
-6. Truy cap frontend va dang nhap test account
+4. Chay frontend (`npm run dev`)
+5. Truy cap frontend va dang nhap test account
 
 ## 8) Loi thuong gap
 
@@ -158,4 +143,4 @@ Tai khoan test (password: `Password@123`):
 - Loi CORS: kiem tra cau hinh CORS trong backend env/config.
 - Dang nhap loi 401 lien tuc: xoa localStorage va dang nhap lai.
 - Worker khong nhan task: kiem tra Redis va command Celery.
-- Async AI scoring khong chay: kiem tra RabbitMQ, scoring_result_consumer, scoring_cv_ai service va shared uploads volume.
+- Async AI scoring khong chay: kiem tra RabbitMQ, scoring_result_consumer va shared uploads volume.

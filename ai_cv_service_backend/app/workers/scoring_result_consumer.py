@@ -8,9 +8,7 @@ import pika
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import setup_logging
-from app.services.ai_service import AICVScoringService
-from app.services.async_scoring_service import AsyncScoringService
-from app.services.notification_service import NotificationService
+from app.services.scoring_request_service import ScoringRequestService
 
 
 logger = logging.getLogger(__name__)
@@ -27,14 +25,14 @@ class ScoringResultConsumer:
         while True:
             try:
                 self._connect()
-                logger.info("Scoring result consumer started")
+                logger.info("Scoring request consumer started")
                 assert self._channel is not None
                 self._channel.start_consuming()
             except KeyboardInterrupt:
-                logger.info("Scoring result consumer stopped")
+                logger.info("Scoring request consumer stopped")
                 break
             except Exception:
-                logger.exception("Scoring result consumer crashed; retrying")
+                logger.exception("Scoring request consumer crashed; retrying")
                 time.sleep(3)
             finally:
                 self._close()
@@ -56,23 +54,15 @@ class ScoringResultConsumer:
         self._channel = self._connection.channel()
         self._channel.exchange_declare(exchange=settings.RABBITMQ_EXCHANGE, exchange_type="topic", durable=True)
 
-        self._channel.queue_declare(queue=settings.RABBITMQ_RESULT_QUEUE, durable=True)
+        self._channel.queue_declare(queue=settings.RABBITMQ_REQUEST_QUEUE, durable=True)
         self._channel.queue_bind(
             exchange=settings.RABBITMQ_EXCHANGE,
-            queue=settings.RABBITMQ_RESULT_QUEUE,
-            routing_key=settings.RABBITMQ_SCORING_RESULT_ROUTING_KEY,
-        )
-
-        self._channel.queue_declare(queue=settings.RABBITMQ_FAILED_QUEUE, durable=True)
-        self._channel.queue_bind(
-            exchange=settings.RABBITMQ_EXCHANGE,
-            queue=settings.RABBITMQ_FAILED_QUEUE,
-            routing_key=settings.RABBITMQ_SCORING_FAILED_ROUTING_KEY,
+            queue=settings.RABBITMQ_REQUEST_QUEUE,
+            routing_key=settings.RABBITMQ_SCORING_REQUEST_ROUTING_KEY,
         )
 
         self._channel.basic_qos(prefetch_count=10)
-        self._channel.basic_consume(queue=settings.RABBITMQ_RESULT_QUEUE, on_message_callback=self._on_result)
-        self._channel.basic_consume(queue=settings.RABBITMQ_FAILED_QUEUE, on_message_callback=self._on_failed)
+        self._channel.basic_consume(queue=settings.RABBITMQ_REQUEST_QUEUE, on_message_callback=self._on_request)
 
     def _close(self) -> None:
         if self._channel and self._channel.is_open:
@@ -90,79 +80,20 @@ class ScoringResultConsumer:
         self._channel = None
         self._connection = None
 
-    def _on_result(self, ch, method, _properties, body: bytes) -> None:
+    def _on_request(self, ch, method, _properties, body: bytes) -> None:
         try:
             event = json.loads(body.decode("utf-8"))
             payload = event.get("payload", event)
-            self._run_async(self._process_result(payload))
+            self._run_async(self._process_request(payload))
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception:
-            logger.exception("Failed to handle scoring result")
+            logger.exception("Failed to handle scoring request")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
-    def _on_failed(self, ch, method, _properties, body: bytes) -> None:
-        try:
-            event = json.loads(body.decode("utf-8"))
-            payload = event.get("payload", event)
-            self._run_async(self._process_failed(payload))
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-        except Exception:
-            logger.exception("Failed to handle scoring failure")
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-
-    async def _process_result(self, payload: dict) -> None:
-        request_id = str(payload.get("request_id", "")).strip()
-        if not request_id:
-            logger.warning("Result payload missing request_id")
-            return
-
-        score = float(payload.get("score", 0.0))
-        reasoning = str(payload.get("reasoning", ""))
-        provider = str(payload.get("provider", "unknown"))
-
+    async def _process_request(self, payload: dict) -> None:
         async with AsyncSessionLocal() as db:
-            service = AsyncScoringService(db)
-            item = await service.record_result(
-                request_id=request_id,
-                score=score,
-                reasoning=reasoning,
-                provider=provider,
-            )
-            if not item:
-                logger.warning("No scoring item found for request_id=%s", request_id)
-                return
-
-            ai_service = AICVScoringService(db)
-            await ai_service.upsert_application_score(
-                item.application_id,
-                score,
-                reasoning,
-                min_score=item.scoring_job.min_score,
-            )
-
-            if item.scoring_job.notify_candidates and item.application and item.application.candidate and item.application.job:
-                passed = score >= item.scoring_job.min_score
-                NotificationService.send_screening_result(
-                    email=item.application.candidate.email,
-                    job_title=item.application.job.title,
-                    passed=passed,
-                    score=score,
-                    threshold=item.scoring_job.min_score,
-                )
-
-    async def _process_failed(self, payload: dict) -> None:
-        request_id = str(payload.get("request_id", "")).strip()
-        if not request_id:
-            logger.warning("Failed payload missing request_id")
-            return
-
-        error_message = str(payload.get("error", "Unknown scoring error"))
-
-        async with AsyncSessionLocal() as db:
-            service = AsyncScoringService(db)
-            item = await service.record_failed(request_id=request_id, error_message=error_message)
-            if not item:
-                logger.warning("No scoring item found for request_id=%s", request_id)
+            service = ScoringRequestService(db)
+            await service.process_request(payload)
 
 
 def main() -> None:

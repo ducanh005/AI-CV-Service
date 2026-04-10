@@ -16,11 +16,21 @@ class StorageService:
         "application/msword",
         "text/plain",
     }
+    allowed_contract_doc_types = {
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/plain",
+    }
 
     extension_by_mime = {
         "application/pdf": {".pdf"},
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {".docx"},
         "application/msword": {".doc"},
+        "application/vnd.ms-excel": {".xls"},
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {".xlsx"},
         "text/plain": {".txt"},
         "image/png": {".png"},
         "image/jpeg": {".jpg", ".jpeg"},

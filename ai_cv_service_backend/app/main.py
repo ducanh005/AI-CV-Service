@@ -15,7 +15,7 @@ from app.core.exceptions import register_exception_handlers
 from app.core.limiter import limiter
 from app.core.logging import setup_logging
 from app.models import *  # noqa: F401,F403
-from app.services.bootstrap_service import ensure_user_profile_columns, seed_default_roles
+from app.services.bootstrap_service import ensure_contract_columns, ensure_user_profile_columns, seed_default_roles
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ async def lifespan(_: FastAPI):
 
     async with AsyncSessionLocal() as db:
         await ensure_user_profile_columns(db)
+        await ensure_contract_columns(db)
         await seed_default_roles(db)
 
     yield

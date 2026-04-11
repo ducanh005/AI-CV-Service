@@ -30,4 +30,3 @@ class Employee(TimestampMixin, SoftDeleteMixin, Base):
     company = relationship("Company", back_populates="employees")
     onboarding_assignments = relationship("OnboardingAssignment", back_populates="employee")
     attendances = relationship("Attendance", back_populates="employee")
-    leave_requests = relationship("LeaveRequest", back_populates="employee")

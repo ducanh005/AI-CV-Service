@@ -16,7 +16,6 @@ from app.models.onboarding import (
     OnboardingTemplate,
 )
 from app.models.job import Job
-from app.models.leave_request import LeaveRequest
 from app.models.role import Role
 from app.models.scoring_job import ScoringJob
 from app.models.scoring_job_item import ScoringJobItem
@@ -40,7 +39,6 @@ __all__ = [
     "OnboardingTaskProgress",
     "OnboardingTemplate",
     "Job",
-    "LeaveRequest",
     "Role",
     "ScoringJob",
     "ScoringJobItem",

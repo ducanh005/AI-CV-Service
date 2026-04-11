@@ -22,4 +22,3 @@ class Company(TimestampMixin, SoftDeleteMixin, Base):
     onboarding_templates = relationship("OnboardingTemplate", back_populates="company")
     onboarding_assignments = relationship("OnboardingAssignment", back_populates="company")
     attendances = relationship("Attendance", back_populates="company")
-    leave_requests = relationship("LeaveRequest", back_populates="company")

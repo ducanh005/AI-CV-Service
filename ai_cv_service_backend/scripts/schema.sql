@@ -271,27 +271,3 @@ CREATE INDEX IF NOT EXISTS idx_attendances_company_id ON attendances(company_id)
 CREATE INDEX IF NOT EXISTS idx_attendances_date ON attendances(date);
 CREATE INDEX IF NOT EXISTS idx_attendances_status ON attendances(status);
 
--- =============================================
--- Leave Requests (Nghỉ phép)
--- =============================================
-CREATE TABLE IF NOT EXISTS leave_requests (
-    id SERIAL PRIMARY KEY,
-    leave_type VARCHAR(20) NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    total_days FLOAT NOT NULL,
-    reason TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    rejected_reason TEXT,
-    approved_at TIMESTAMPTZ,
-    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    approved_by_id INT REFERENCES users(id) ON DELETE SET NULL,
-    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_employee_id ON leave_requests(employee_id);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_company_id ON leave_requests(company_id);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_leave_type ON leave_requests(leave_type);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_start_date ON leave_requests(start_date);

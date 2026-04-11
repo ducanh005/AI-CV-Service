@@ -13,7 +13,6 @@ from app.api.v1.endpoints import (
     integrations,
     interviews,
     jobs,
-    leave_requests,
     onboarding,
     users,
 )
@@ -33,4 +32,3 @@ api_router.include_router(integrations.router, prefix="/integrations", tags=["In
 api_router.include_router(contracts.router, prefix="/contracts", tags=["Contracts"])
 api_router.include_router(onboarding.router, prefix="/onboarding", tags=["Onboarding"])
 api_router.include_router(attendance.router, prefix="/attendances", tags=["Attendance"])
-api_router.include_router(leave_requests.router, prefix="/leave-requests", tags=["LeaveRequests"])

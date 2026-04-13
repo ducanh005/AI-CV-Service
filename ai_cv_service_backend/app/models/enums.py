@@ -57,6 +57,7 @@ class ContractDocumentType(str, Enum):
     CONTRACT = "contract"
     APPENDIX = "appendix"
     AMENDMENT = "amendment"
+    DECISION = "decision"
     OTHER = "other"
 
 

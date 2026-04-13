@@ -38,6 +38,36 @@ class AICVScoringService:
         job_description: str,
         criteria: HRScoreCriteria | None = None,
     ) -> tuple[float, str]:
+        def _contains(text: str, token: str) -> bool:
+            return token.strip().lower() in text.lower()
+
+        def _fallback_score() -> tuple[float, str]:
+            required_skills = [skill.strip() for skill in (criteria.required_skills if criteria else []) if skill.strip()]
+            preferred_skills = [skill.strip() for skill in (criteria.preferred_skills if criteria else []) if skill.strip()]
+
+            required_hits = sum(1 for skill in required_skills if _contains(cv_text, skill))
+            preferred_hits = sum(1 for skill in preferred_skills if _contains(cv_text, skill))
+
+            required_ratio = (required_hits / len(required_skills)) if required_skills else 0.5
+            preferred_ratio = (preferred_hits / len(preferred_skills)) if preferred_skills else 0.5
+
+            jd_keywords = {
+                token.lower()
+                for token in re.findall(r"[A-Za-z0-9+#.-]{4,}", job_description)
+                if token.lower() not in {"with", "from", "that", "this", "have", "your", "candidate", "years"}
+            }
+            cv_text_lower = cv_text.lower()
+            keyword_hits = sum(1 for kw in jd_keywords if kw in cv_text_lower)
+            keyword_ratio = (keyword_hits / len(jd_keywords)) if jd_keywords else 0.5
+
+            weighted = (required_ratio * 0.55) + (preferred_ratio * 0.2) + (keyword_ratio * 0.25)
+            score = max(0.0, min(100.0, round(20 + (weighted * 80), 2)))
+            reasoning = (
+                f"Fallback scoring (no AISTUDIO key): required {required_hits}/{len(required_skills) or 0}, "
+                f"preferred {preferred_hits}/{len(preferred_skills) or 0}, jd-keywords {keyword_hits}/{len(jd_keywords) or 0}."
+            )
+            return score, reasoning[:280]
+
         criteria_text = "No explicit HR criteria provided."
         if criteria:
             criteria_text = (
@@ -58,7 +88,7 @@ class AICVScoringService:
         )
 
         if not settings.AISTUDIO_API_KEY:
-            raise AppException("AISTUDIO_API_KEY is not configured", status_code=500)
+            return _fallback_score()
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/{settings.AISTUDIO_MODEL}:generateContent"

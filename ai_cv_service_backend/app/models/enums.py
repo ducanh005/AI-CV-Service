@@ -46,6 +46,20 @@ class ContractType(str, Enum):
     TEMPORARY = "temporary"
 
 
+class ContractStatus(str, Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    TERMINATED = "terminated"
+
+
+class ContractDocumentType(str, Enum):
+    CONTRACT = "contract"
+    APPENDIX = "appendix"
+    AMENDMENT = "amendment"
+    OTHER = "other"
+
+
 class OnboardingStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -65,15 +79,4 @@ class AttendanceStatus(str, Enum):
     HALF_DAY = "half_day"
 
 
-class LeaveType(str, Enum):
-    ANNUAL = "annual"
-    SICK = "sick"
-    PERSONAL = "personal"
-    MATERNITY = "maternity"
-    UNPAID = "unpaid"
 
-
-class LeaveStatus(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"

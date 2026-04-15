@@ -30,6 +30,10 @@ export const applicationService = {
         );
         return data;
     },
+    remove: async (applicationId) => {
+        const { data } = await api.delete(`/applications/${applicationId}`);
+        return data;
+    },
     hrDashboard: async () => {
         const { data } = await api.get("/applications/hr-dashboard");
         return data;

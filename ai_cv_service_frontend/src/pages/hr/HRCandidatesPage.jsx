@@ -3,7 +3,6 @@ import {
   MailOutlined,
   SearchOutlined,
   StarOutlined,
-  LinkedinOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -12,6 +11,7 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Progress,
   Select,
   Space,
@@ -24,14 +24,14 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 
-import { useApplicationsByJob, useReviewApplication } from '../../hooks/useApplications';
+import { useApplicationsByJob, useDeleteApplication, useReviewApplication } from '../../hooks/useApplications';
 import { useJobs } from '../../hooks/useJobs';
 import {
   useNotifyScreeningResult,
   useRankCandidatesAsyncStatus,
   useRankCandidatesAsyncSubmit,
 } from '../../hooks/useCV';
-import { useCreateInterview, useLinkedinOauthUrl, useSendGmailEmail } from '../../hooks/useIntegrations';
+import { useCreateInterview, useSendGmailEmail } from '../../hooks/useIntegrations';
 
 const { Title, Text } = Typography;
 
@@ -49,7 +49,6 @@ function HRCandidatesPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isLinkedinOpen, setIsLinkedinOpen] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
   const [isEmailOpen, setIsEmailOpen] = useState(false);
@@ -65,7 +64,6 @@ function HRCandidatesPage() {
   const [selectedJobId, setSelectedJobId] = useState(undefined);
   const [interviewForm] = Form.useForm();
 
-  const linkedinMutation = useLinkedinOauthUrl();
   const rankCandidatesAsyncSubmitMutation = useRankCandidatesAsyncSubmit();
   const { data: aiStatusData, isFetching: aiStatusFetching } = useRankCandidatesAsyncStatus(
     aiScoringJobId,
@@ -74,6 +72,7 @@ function HRCandidatesPage() {
   const notifyScreeningResultMutation = useNotifyScreeningResult();
   const createInterviewMutation = useCreateInterview();
   const reviewApplicationMutation = useReviewApplication();
+  const deleteApplicationMutation = useDeleteApplication();
   const sendGmailEmailMutation = useSendGmailEmail();
   const { data: jobsData } = useJobs({ page: 1, page_size: 100 });
   const { data: applicationsData, isLoading: applicationsLoading } = useApplicationsByJob(
@@ -295,6 +294,23 @@ function HRCandidatesPage() {
               interviewForm.setFieldsValue({ starts_at: undefined, ends_at: undefined, notes: undefined });
             }}
           />
+          <Popconfirm
+            title="Xóa ứng viên này?"
+            description="Thao tác sẽ xóa hồ sơ ứng tuyển khỏi danh sách hiện tại."
+            okText="Xóa"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true, loading: deleteApplicationMutation.isPending }}
+            onConfirm={async () => {
+              try {
+                await deleteApplicationMutation.mutateAsync(row.id);
+                message.success('Đã xóa ứng viên khỏi danh sách');
+              } catch (error) {
+                message.error(error?.response?.data?.detail || 'Không thể xóa ứng viên');
+              }
+            }}
+          >
+            <Button danger type="text">Xóa</Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -396,14 +412,6 @@ function HRCandidatesPage() {
         </div>
 
         <Space>
-          <Button
-            type="primary"
-            className="!h-[50px] !rounded-[14px] !bg-gradient-to-r !from-blue-600 !to-blue-500 !text-[16px]"
-            icon={<LinkedinOutlined />}
-            onClick={() => setIsLinkedinOpen(true)}
-          >
-            Import từ LinkedIn
-          </Button>
           <Button
             type="primary"
             className="!h-[50px] !rounded-[14px] !border-0 !bg-gradient-to-r !from-violet-600 !to-pink-600 !text-[16px]"
@@ -543,40 +551,6 @@ function HRCandidatesPage() {
             </Button>
           </div>
         </Card>
-      </Modal>
-
-      <Modal
-        open={isLinkedinOpen}
-        onCancel={() => setIsLinkedinOpen(false)}
-        footer={null}
-        width={980}
-        title={<span className="text-[40px]">Import từ LinkedIn</span>}
-      >
-        <Space direction="vertical" className="w-full">
-          <Input className="search-input" placeholder="Tìm kiếm theo vị trí, kỹ năng, địa điểm..." />
-          <div className="panel-card flex min-h-[260px] flex-col items-center justify-center p-5 text-center">
-            <LinkedinOutlined className="mb-3 text-[22px] text-[#7a8194]" />
-            <p className="m-0 text-[22px] font-semibold">Chưa có kết quả</p>
-            <p className="mt-2 text-[18px] text-[#6b7289]">Nhập từ khóa và nhấn Tìm kiếm để bắt đầu</p>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button onClick={() => setIsLinkedinOpen(false)}>Hủy</Button>
-            <Button
-              type="primary"
-              loading={linkedinMutation.isPending}
-              onClick={async () => {
-                try {
-                  const result = await linkedinMutation.mutateAsync();
-                  window.open(result.oauth_url, '_blank');
-                } catch {
-                  message.error('Không thể mở LinkedIn OAuth');
-                }
-              }}
-            >
-              Import
-            </Button>
-          </div>
-        </Space>
       </Modal>
 
       <Modal

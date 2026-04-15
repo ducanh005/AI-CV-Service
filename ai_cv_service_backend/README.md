@@ -157,7 +157,6 @@ Seeded test accounts (password: `Password@123`):
 
 - GET `/api/v1/integrations/linkedin/oauth-url`
 - GET `/api/v1/integrations/linkedin/callback`
-- GET `/api/v1/integrations/linkedin/import-candidate`
 - POST `/api/v1/integrations/gmail/test-email`
 - POST `/api/v1/integrations/calendar/test-event`
 

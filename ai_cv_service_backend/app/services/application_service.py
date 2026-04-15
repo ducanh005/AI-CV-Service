@@ -1,10 +1,10 @@
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.exceptions import AppException
-from app.models import Application, CV, Job
+from app.models import AIScore, Application, CV, Contract, Interview, Job, ScoringJobItem
 from app.models.enums import ApplicationStatus
 
 
@@ -88,6 +88,28 @@ class ApplicationService:
         await self.db.commit()
         await self.db.refresh(application)
         return application
+
+    async def delete(self, application: Application) -> None:
+        # Use SQL-level deletes/updates to avoid ORM de-association setting FK to NULL
+        # on non-nullable children (e.g. ai_scores.application_id).
+        await self.db.execute(
+            delete(AIScore).where(AIScore.application_id == application.id)
+        )
+        await self.db.execute(
+            delete(Interview).where(Interview.application_id == application.id)
+        )
+        await self.db.execute(
+            delete(ScoringJobItem).where(ScoringJobItem.application_id == application.id)
+        )
+        await self.db.execute(
+            update(Contract)
+            .where(Contract.source_application_id == application.id)
+            .values(source_application_id=None)
+        )
+        await self.db.execute(
+            delete(Application).where(Application.id == application.id)
+        )
+        await self.db.commit()
 
     async def list_for_job(self, job_id: int, page: int, page_size: int) -> tuple[list[Application], int]:
         where_clause = and_(Application.job_id == job_id)

@@ -31,12 +31,6 @@ async def linkedin_callback(code: str = Query(..., min_length=4)) -> dict[str, s
     return {"message": "LinkedIn profile fetched", "email": profile["email"], "full_name": profile["full_name"]}
 
 
-@router.get("/linkedin/import-candidate")
-async def import_candidate_from_linkedin(code: str = Query(..., min_length=4)) -> dict:
-    profile = exchange_code_for_profile(code)
-    return {"imported": True, "profile": profile}
-
-
 @router.post("/gmail/test-email")
 async def send_test_email(
     to_email: str = Query(...),

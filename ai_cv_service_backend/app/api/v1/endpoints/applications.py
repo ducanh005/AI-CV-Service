@@ -266,3 +266,25 @@ async def review_application(
     updated = await service.review(application, current_user.id, payload.status, payload.notes)
     refreshed = await service.get_application(updated.id)
     return ApplicationResponse.model_validate(_serialize_application(refreshed))
+
+
+@router.delete("/{application_id}", response_model=dict)
+async def delete_application(
+    application_id: int,
+    current_user: User = Depends(require_roles(UserRole.HR, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    service = ApplicationService(db)
+    application = await service.get_application(application_id)
+
+    job = await db.scalar(select(Job).where(Job.id == application.job_id, Job.deleted_at.is_(None)))
+    if not job:
+        raise AppException("Job not found", status_code=404)
+
+    await _ensure_hr_company_context(current_user, db, target_company_id=job.company_id)
+
+    if current_user.role.name == UserRole.HR.value and current_user.company_id != job.company_id:
+        raise AppException("Forbidden", status_code=403)
+
+    await service.delete(application)
+    return {"message": "Application deleted successfully", "application_id": application_id}

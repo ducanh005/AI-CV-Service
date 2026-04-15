@@ -48,6 +48,15 @@ export function useReviewApplication() {
     });
 }
 
+export function useDeleteApplication() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: applicationService.remove,
+        onSuccess: () =>
+            queryClient.invalidateQueries({ queryKey: ["applications"] }),
+    });
+}
+
 export function useHRDashboard() {
     return useQuery({
         queryKey: ["applications", "hr-dashboard"],

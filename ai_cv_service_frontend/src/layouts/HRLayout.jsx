@@ -3,7 +3,6 @@ import {
   TeamOutlined,
   SolutionOutlined,
   UserOutlined,
-  ApiOutlined,
   LogoutOutlined,
   CalendarOutlined,
   ScheduleOutlined,
@@ -24,9 +23,8 @@ const menuItems = [
   { key: '/hr/staff', icon: <TeamOutlined />, label: 'Nhân sự' },
   { key: '/hr/onboarding', icon: <SolutionOutlined />, label: 'Onboarding' },
   { key: '/hr/attendance', icon: <ScheduleOutlined />, label: 'Chấm công' },
-  { key: '/hr/integrations', icon: <ApiOutlined />, label: 'Tích hợp' },
-  { key: '/hr/profile', icon: <UserOutlined />, label: 'Hồ sơ' },
   { key: "/hr/interviews", icon: <CalendarOutlined />, label: "Lịch phỏng vấn" },
+  { key: '/hr/profile', icon: <UserOutlined />, label: 'Hồ sơ' },
 ];
 
 function HRLayout() {
